@@ -23,6 +23,7 @@ separation:
 diarization:
   model: pyannote/speaker-diarization-3.1
   token_env: HF_TOKEN
+  cache_dir: checkpoints/huggingface
   save_json: true
   save_segments: true
   segment_padding_sec: 0.25

@@ -264,6 +264,10 @@ def run_diarization(
         segment_min_duration_sec=float(
             config_value(config, "diarization", "segment_min_duration_sec", 0.05)
         ),
+        cache_dir=resolve_from_root(
+            root,
+            config_value(config, "diarization", "cache_dir", "checkpoints/huggingface"),
+        ),
         overwrite=overwrite,
     )
     update_diarization_completed(

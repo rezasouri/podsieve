@@ -38,6 +38,7 @@ def diarize_audio(
     segment_padding_sec: float = DEFAULT_SEGMENT_PADDING_SEC,
     segment_fade_sec: float = DEFAULT_SEGMENT_FADE_SEC,
     segment_min_duration_sec: float = DEFAULT_MIN_SEGMENT_DURATION_SEC,
+    cache_dir: Path | None = None,
     overwrite: bool = False,
 ) -> dict[str, Any]:
     """Run pyannote diarization and save RTTM, JSON, and speaker-turn WAVs."""
@@ -60,6 +61,12 @@ def diarize_audio(
     if save_segments and overwrite:
         for segment in existing_segments:
             segment.unlink()
+
+    # Set the Hugging Face cache before importing pyannote/huggingface_hub.
+    # Respect an explicit HF_HOME from the caller; otherwise keep model files
+    # inside this project's checkpoints directory by default.
+    default_cache_dir = cache_dir or Path("checkpoints/huggingface")
+    os.environ.setdefault("HF_HOME", str(default_cache_dir.expanduser().resolve()))
 
     try:
         import torch
