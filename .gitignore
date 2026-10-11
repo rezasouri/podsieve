@@ -1,0 +1,34 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+
+# Virtual environments and tooling caches
+.venv/
+.python-version
+.ruff_cache/
+.mypy_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Local data, logs, temporary work, and secrets
+data/
+logs/
+*.log
+.env
+.env.*
+!.env.example
+*.cookies
+cookies.txt
+
+# Model checkpoints are large; track them separately (for example with Git LFS).
+checkpoints/*.ckpt
+
+# Editor and OS files
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
