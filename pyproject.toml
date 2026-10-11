@@ -15,6 +15,7 @@ dependencies = [
     "onnxruntime-gpu==1.23.2",
     "protobuf==6.33.6",
     "pyannote-audio==4.0.1",
+    "python-dotenv>=1.0,<2.0",
     "PyYAML==6.0.3",
     "requests==2.33.1",
     "rich>=15.0.0,<16.0.0",

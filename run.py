@@ -6,6 +6,8 @@ import shutil
 from pathlib import Path
 from typing import Any
 
+from dotenv import load_dotenv
+
 from src.core.config import config_value, load_config, resolve_from_root
 from src.core.errors import PipelineError, StageError
 from src.core.logging_config import configure_logging
@@ -227,6 +229,7 @@ def run_separation(
 
 def run_diarization(
     *,
+    root: Path,
     layout: StorageLayout,
     speaker_id: str,
     source_id: str,
@@ -308,6 +311,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
     root = Path(__file__).resolve().parent
+    load_dotenv(dotenv_path=root / ".env", override=False)
     config = load_config(resolve_from_root(root, args.base_config))
     layout = storage_layout_from_config(root, config, data_root_override=args.data_root)
 
@@ -352,6 +356,7 @@ def main(argv: list[str] | None = None) -> int:
             )
         elif args.command == "diarize":
             result = run_diarization(
+                root=root,
                 layout=layout,
                 speaker_id=args.speaker_id,
                 source_id=args.source_id,
