@@ -77,11 +77,13 @@ The separation checkpoint is expected at:
 checkpoints/model_bs_roformer_ep_317_sdr_12.9755.ckpt
 ```
 
-The checkpoint file is large. It is included in this local project copy, but
-consider storing model weights with an artifact or model store if you publish
-the source repository.
+The separation checkpoint is kept locally at this path and is ignored by Git.
+The pyannote model and its dependent model weights are downloaded from
+Hugging Face on first use. To keep that cache under `checkpoints/`, set
+`HF_HOME` to `checkpoints/huggingface` when running diarization. The cache is
+also ignored by Git.
 
-Set your Hugging Face token in the environment before running diarization:
+Set your Hugging Face token in the environment before running diarization. The model files will be cached under `checkpoints/huggingface/`:
 
 ```bash
 export HF_TOKEN="your-hugging-face-token"
@@ -142,7 +144,7 @@ retain temporary separation chunks for inspection.
 ### 4. Run diarization
 
 ```bash
-uv run python run.py diarize \
+HF_HOME="$PWD/checkpoints/huggingface" uv run python run.py diarize \
   --speaker-id speaker_001 \
   --source-id source_001
 ```
