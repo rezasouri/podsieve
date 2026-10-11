@@ -12,7 +12,8 @@ from src.core.storage_layout import StorageLayout, validate_source_id, validate_
 from src.core.storage_metadata import upsert_source_metadata, write_global_registries, write_speaker_metadata
 from src.ingestion.downloader import download_url_audio
 from src.ingestion.converter import convert_to_wav
-from src.core.storage_metadata import source_by_id, stage_path, update_conversion_completed
+from src.core.storage_metadata import source_by_id, stage_path, update_conversion_completed, update_separation_completed
+from src.separation.runner import separate_audio
 
 LOGGER = logging.getLogger(__name__)
 
@@ -35,6 +36,11 @@ def build_parser() -> argparse.ArgumentParser:
     convert.add_argument("--speaker-id", required=True)
     convert.add_argument("--source-id", required=True)
     convert.add_argument("--overwrite", action="store_true")
+    separate = commands.add_parser("separate", help="Separate vocals and instrumental audio.")
+    separate.add_argument("--speaker-id", required=True)
+    separate.add_argument("--source-id", required=True)
+    separate.add_argument("--overwrite", action="store_true")
+    separate.add_argument("--keep-work-dir", action="store_true")
     return parser
 
 def _prepare_raw_slot(layout: StorageLayout, speaker_id: str, source_id: str, overwrite: bool) -> None:
@@ -80,7 +86,7 @@ def main(argv: list[str] | None = None) -> int:
             }.items() if value})
             write_speaker_metadata(layout, args.speaker_id, metadata)
             write_global_registries(layout)
-        else:
+        elif args.command == "convert":
             source = source_by_id(layout, args.speaker_id, args.source_id)
             raw_relative = stage_path(source, "raw")
             if not raw_relative:
@@ -93,6 +99,24 @@ def main(argv: list[str] | None = None) -> int:
             )
             update_conversion_completed(layout, args.speaker_id, args.source_id, output)
             write_global_registries(layout)
+        else:
+            vocals, instrumental = separate_audio(
+                input_file=layout.wav_source_path(args.speaker_id, args.source_id),
+                vocals_output=layout.vocals_path(args.speaker_id, args.source_id),
+                instrumental_output=layout.instrumental_path(args.speaker_id, args.source_id),
+                model_dir=resolve_from_root(root, config.get("separation", {}).get("checkpoints_dir", "checkpoints")),
+                work_dir=layout.work_dir(args.speaker_id, args.source_id) / "separation",
+                model=str(config.get("separation", {}).get("model", "model_bs_roformer_ep_317_sdr_12.9755.ckpt")),
+                preset=config.get("separation", {}).get("preset"),
+                chunk_seconds=int(config.get("audio", {}).get("chunk_seconds", 180)),
+                sample_rate=int(config.get("audio", {}).get("sample_rate", 44100)),
+                use_autocast=bool(config.get("separation", {}).get("use_autocast", False)),
+                keep_work_dir=args.keep_work_dir,
+                overwrite=args.overwrite,
+            )
+            update_separation_completed(layout, args.speaker_id, args.source_id, vocals_path=vocals, instrumental_path=instrumental)
+            write_global_registries(layout)
+            output = vocals
         print(output)
         return 0
     except (OSError, PipelineError, ValueError) as exc:
