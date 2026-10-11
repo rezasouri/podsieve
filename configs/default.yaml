@@ -1,0 +1,106 @@
+storage:
+  data_root: data
+  schema_version: "1.0"
+
+audio:
+  sample_rate: 44100
+  diarization_sample_rate: 16000
+  chunk_seconds: 180
+
+download:
+  format: "251/140/bestaudio"
+  audio_format: "opus"
+  cookies_file: null
+  cookies_from_browser: null
+  js_runtimes: node
+  remote_components: null
+
+separation:
+  model: model_bs_roformer_ep_317_sdr_12.9755.ckpt
+  preset: null
+  use_autocast: false
+
+diarization:
+  model: pyannote/speaker-diarization-3.1
+  token_env: HF_TOKEN
+  save_json: true
+  save_segments: true
+  segment_padding_sec: 0.25
+  segment_fade_sec: 0.005
+  segment_min_duration_sec: 0.05
+
+speaker_chunker:
+  sample_rate: 16000
+  allowed_audio_extensions:
+    - .wav
+    - .flac
+    - .mp3
+    - .m4a
+    - .ogg
+  chunk_sec: 4.0
+  target_chunks_per_speaker: null
+  target_policy: fixed
+  capacity_ratio: 0.10
+  min_target_chunks: 30
+  max_target_chunks: 200
+  silence_mode: zero
+  random_seed: 42
+  overwrite: false
+  dry_run: false
+  vad_backend: energy
+  top_db: 35.0
+  vad_floor_dbfs: -60.0
+  min_speech_sec: 1.2
+  merge_gap_sec: 0.25
+  silero_threshold: 0.5
+  silero_min_speech_ms: 250
+  silero_min_silence_ms: 100
+  silero_speech_pad_ms: 30
+  min_active_speech_sec: 0.5
+  min_active_speech_ratio: 0.125
+  max_internal_silence_sec: null
+  target_rms_dbfs: -25.0
+  peak_limit: 0.98
+  min_peak: 0.00001
+  source_hop_sec: 2.0
+  min_crop_start_gap_sec: 1.5
+  duplicate_corr_threshold: 0.98
+  speaker_duplicate_check_enabled: true
+  speaker_duplicate_corr_threshold: 0.995
+  speaker_duplicate_fingerprint_size: 2048
+  speaker_duplicate_max_history: 5000
+  max_chunks_per_segment: null
+  concentration_warning_ratio: 0.35
+  leading_silence_min_sec: 0.25
+  leading_silence_max_sec: 1.50
+  trailing_silence_min_sec: 0.30
+  trailing_silence_max_sec: 1.50
+  mode_weights:
+    speech_start: 0.45
+    leading_silence: 0.25
+    trailing_silence: 0.20
+    centered: 0.10
+  end_boundary_check_enabled: true
+  end_boundary_window_sec: 0.20
+  end_boundary_search_sec: 0.80
+  end_boundary_pause_min_sec: 0.15
+  end_boundary_active_threshold_dbfs: -40.0
+  end_boundary_pause_threshold_dbfs: -45.0
+  end_boundary_max_tail_padding_sec: 1.0
+  end_boundary_max_repairs_per_chunk: 1
+  end_boundary_strict_modes:
+    - leading_silence
+    - trailing_silence
+  end_boundary_allow_active_end_modes:
+    - speech_start
+    - centered
+  start_boundary_enabled: true
+  start_boundary_window_sec: 0.20
+  start_boundary_search_sec: 0.80
+  start_boundary_pause_min_sec: 0.15
+  start_boundary_active_threshold_dbfs: -40.0
+  start_boundary_pause_threshold_dbfs: -45.0
+  start_boundary_max_head_padding_sec: 1.0
+  start_boundary_max_repairs_per_chunk: 1
+  mode_max_attempts: 12
+  validate_output: true
