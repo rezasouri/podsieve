@@ -27,7 +27,7 @@ dependencies = [
     "torchcodec==0.7.0",
     "torchvision==0.23.0",
     "tqdm==4.67.3",
-    "yt-dlp==2026.3.17",
+    "yt-dlp[default]>=2026.8.19",
 ]
 
 [tool.uv]

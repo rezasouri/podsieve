@@ -149,9 +149,10 @@ uv run python run.py diarize \
   --source-id source_001
 ```
 
-The diarization stage runs on the separated vocals. Depending on the
-configuration, it writes RTTM and JSON results and one WAV file per detected
-segment.
+The diarization stage runs on the separated vocals. It writes RTTM/JSON
+annotations, diagnostics, and a final set of segments that do not intersect
+the generated quality or overlap review windows. Final WAVs are grouped by
+speaker and listed in CSV/JSON manifests.
 
 Each stage accepts `--overwrite` to replace its existing output. Use it only
 when you intend to regenerate that stage's result.
@@ -176,9 +177,27 @@ data/
         │       └── instrumental.wav
         └── diarization/
             └── source_001/
-                ├── diarization.rttm
-                ├── diarization.json
-                └── segments/
+                ├── annotation/
+                │   ├── diarization.json
+                │   └── diarization.rttm
+                ├── final/
+                │   ├── segments/
+                │   │   ├── SPEAKER_00/
+                │   │   └── SPEAKER_01/
+                │   ├── manifest.csv
+                │   └── manifest.json
+                └── diagnostics/
+                    ├── evidence/
+                    │   ├── manifest.json
+                    │   └── *.npy
+                    └── quality/
+                        ├── suspicious_segments.csv
+                        ├── overlap_candidates.csv
+                        ├── quality_summary.json
+                        └── review_clips/
+                            ├── suspicious/
+                            ├── groups/
+                            └── overlap/
 ```
 
 Set another storage directory in the config, or override it for one invocation:
@@ -192,12 +211,44 @@ uv run python run.py --data-root /path/to/audio-data ingest \
 
 ## Command help
 
+`diarize` now saves model evidence and runs quality analysis automatically:
+
+```bash
+uv run python run.py diarize \
+  --speaker-id speaker_001 --source-id source_001 --num-speakers 2
+```
+
+Re-rank saved evidence without rerunning a model:
+
+```bash
+uv run python run.py analyze-diarization \
+  --speaker-id speaker_001 --source-id source_001 --overwrite
+```
+
+Existing diarization files created before evidence capture can be upgraded
+explicitly. This reruns diarization on the saved vocals and replaces its
+outputs, so pass `--overwrite` deliberately:
+
+```bash
+uv run python run.py upgrade-diarization-evidence \
+  --speaker-id speaker_001 --source-id source_001 --num-speakers 2 --overwrite
+```
+
+For a basic diarization run without the expensive evidence passes, pass both
+`--no-save-evidence --no-quality-analysis`.
+
+The analyzer writes review reports under the source's `diarization/diagnostics/quality/`
+directory. Final unflagged WAV segments and their manifests are under `diarization/final/`.
+See [the quality-analysis guide](docs/DIARIZATION_QUALITY.md) for
+evidence requirements, output fields, and scoring limitations.
+
 ```bash
 uv run python run.py --help
 uv run python run.py ingest --help
 uv run python run.py convert --help
 uv run python run.py separate --help
 uv run python run.py diarize --help
+uv run python run.py upgrade-diarization-evidence --help
 ```
 
 ## Troubleshooting

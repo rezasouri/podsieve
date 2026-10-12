@@ -293,7 +293,7 @@ def update_diarization_completed(
     if segments_dir is not None and not segments_dir.is_dir():
         raise ValueError(f"diarization segments directory does not exist: {segments_dir}")
     segment_count = (
-        len([path for path in segments_dir.glob("*.wav") if path.is_file()])
+        len([path for path in segments_dir.rglob("*.wav") if path.is_file()])
         if segments_dir is not None
         else 0
     )
@@ -359,7 +359,7 @@ def review_segment_state(
     source_id: str,
 ) -> tuple[int, str]:
     segments_dir = layout.diarization_segments_dir(speaker_id, source_id)
-    files = sorted(path for path in segments_dir.glob("*.wav") if path.is_file())
+    files = sorted(path for path in segments_dir.rglob("*.wav") if path.is_file())
     digest = hashlib.sha256()
     for path in files:
         if path.stat().st_size == 0:

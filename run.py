@@ -23,6 +23,8 @@ from src.core.storage_metadata import (
     write_speaker_metadata,
 )
 from src.diarization import diarize_audio
+from src.diarization.quality import QualityConfig, analyze_source
+from src.diarization.quality.saved_evidence import SavedEvidenceAdapter
 from src.ingestion.converter import convert_to_wav
 from src.ingestion.downloader import download_url_audio
 from src.separation.runner import separate_audio
@@ -79,6 +81,27 @@ def build_parser() -> argparse.ArgumentParser:
     diarize = subparsers.add_parser("diarize", help="Diarize one source.")
     add_identity(diarize)
     diarize.add_argument("--overwrite", action="store_true")
+    diarize.add_argument("--num-speakers", type=int, default=None)
+    diarize.add_argument("--save-evidence", action=argparse.BooleanOptionalAction, default=True)
+    diarize.add_argument("--quality-analysis", action=argparse.BooleanOptionalAction, default=True)
+
+    upgrade = subparsers.add_parser("upgrade-diarization-evidence", help="Regenerate diarization and evidence from saved vocals audio.")
+    add_identity(upgrade)
+    upgrade.add_argument("--num-speakers", type=int, default=None)
+    upgrade.add_argument("--overwrite", action="store_true")
+
+    analyze = subparsers.add_parser(
+        "analyze-diarization", help="Rank suspicious regions in existing diarization output."
+    )
+    add_identity(analyze)
+    analyze.add_argument("--top-k", type=int, default=30)
+    analyze.add_argument("--min-score", type=float, default=0.0)
+    analyze.add_argument("--export-review-clips", action=argparse.BooleanOptionalAction, default=None)
+    analyze.add_argument("--features-file", type=Path)
+    analyze.add_argument("--reference-rttm", type=Path)
+    analyze.add_argument("--collar", type=float, default=0.0)
+    analyze.add_argument("--skip-overlap", action="store_true")
+    analyze.add_argument("--overwrite", action="store_true")
 
     return parser
 
@@ -235,6 +258,9 @@ def run_diarization(
     source_id: str,
     config: dict[str, Any],
     overwrite: bool,
+    num_speakers: int | None = None,
+    save_evidence: bool = True,
+    quality_analysis: bool = True,
 ) -> dict[str, Any]:
     input_file = layout.vocals_path(speaker_id, source_id)
     result = diarize_audio(
@@ -271,7 +297,15 @@ def run_diarization(
             root,
             config_value(config, "diarization", "cache_dir", "checkpoints/huggingface"),
         ),
+        num_speakers=num_speakers if num_speakers is not None else config_value(config, "diarization", "num_speakers"),
         overwrite=overwrite,
+        save_native_evidence=save_evidence,
+        quality_analysis=quality_analysis,
+        quality_config=QualityConfig.from_mapping({
+            **config.get("diarization_quality", {}),
+            **({"expected_num_speakers": num_speakers} if num_speakers is not None else {}),
+        }),
+        original_audio_path=layout.wav_source_path(speaker_id, source_id),
     )
     update_diarization_completed(
         layout,
@@ -354,7 +388,9 @@ def main(argv: list[str] | None = None) -> int:
                 overwrite=args.overwrite,
                 keep_work_dir=args.keep_work_dir,
             )
-        elif args.command == "diarize":
+        elif args.command in {"diarize", "upgrade-diarization-evidence"}:
+            if args.num_speakers is not None and args.num_speakers < 1:
+                raise PipelineError("--num-speakers must be positive")
             result = run_diarization(
                 root=root,
                 layout=layout,
@@ -362,8 +398,50 @@ def main(argv: list[str] | None = None) -> int:
                 source_id=args.source_id,
                 config=config,
                 overwrite=args.overwrite,
+                num_speakers=args.num_speakers,
+                save_evidence=getattr(args, "save_evidence", True),
+                quality_analysis=getattr(args, "quality_analysis", True),
             )
             output = result["rttm"]
+        elif args.command == "analyze-diarization":
+            quality_settings = config.get("diarization_quality", {})
+            if not isinstance(quality_settings, dict):
+                raise PipelineError("diarization_quality must be a mapping")
+            quality_config = QualityConfig.from_mapping(quality_settings)
+            json_input = layout.diarization_json_path(args.speaker_id, args.source_id)
+            rttm_input = layout.diarization_rttm_path(args.speaker_id, args.source_id)
+            legacy_source_dir = layout.diarization_source_dir(args.speaker_id, args.source_id)
+            if not json_input.is_file() and (legacy_source_dir / "diarization.json").is_file():
+                json_input = legacy_source_dir / "diarization.json"
+            if not rttm_input.is_file() and (legacy_source_dir / "diarization.rttm").is_file():
+                rttm_input = legacy_source_dir / "diarization.rttm"
+            diarization_input = json_input if json_input.is_file() else rttm_input
+            evidence_dir = layout.diarization_evidence_dir(args.speaker_id, args.source_id)
+            if not evidence_dir.is_dir() and (legacy_source_dir / "evidence").is_dir():
+                evidence_dir = legacy_source_dir / "evidence"
+            adapter = None
+            if args.features_file is None and evidence_dir.is_dir():
+                adapter = SavedEvidenceAdapter(evidence_dir,
+                    audio_path=layout.vocals_path(args.speaker_id, args.source_id),
+                    annotation_path=diarization_input)
+            analyze_source(
+                source_id=args.source_id,
+                audio_path=layout.vocals_path(args.speaker_id, args.source_id),
+                diarization_path=diarization_input,
+                output_dir=layout.diarization_quality_dir(args.speaker_id, args.source_id),
+                config=quality_config,
+                features_path=args.features_file,
+                evidence_adapter=adapter,
+                top_k=args.top_k,
+                min_score=args.min_score,
+                export_clips=args.export_review_clips,
+                overwrite=args.overwrite,
+                reference_rttm=args.reference_rttm,
+                collar=args.collar,
+                skip_overlap=args.skip_overlap,
+                configured_backend=str(config_value(config, "diarization", "model", "pyannote/speaker-diarization-3.1")),
+            )
+            output = layout.diarization_quality_dir(args.speaker_id, args.source_id) / "quality_summary.json"
         else:
             raise PipelineError(f"unsupported command: {args.command}")
     except (OSError, PipelineError, StageError, ValueError) as exc:

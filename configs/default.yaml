@@ -10,7 +10,7 @@ audio:
 download:
   format: "251/140/bestaudio"
   audio_format: "opus"
-  cookies_file: null
+  cookies_file: /home/nobka/Downloads/cookies (1).txt
   cookies_from_browser: null
   js_runtimes: node
   remote_components: null
@@ -29,6 +29,40 @@ diarization:
   segment_padding_sec: 0.25
   segment_fade_sec: 0.005
   segment_min_duration_sec: 0.05
+
+diarization_quality:
+  enabled: true
+  expected_num_speakers: null
+  embedding_analysis: true
+  overlap_analysis: true
+  temporal_analysis: true
+  segmentation_analysis: true
+  speech_activity_analysis: true
+  minimum_segment_duration: 0.5
+  minimum_reference_segments: 2
+  short_turn_seconds: 0.7
+  rapid_switch_seconds: 1.2
+  short_gap_seconds: 0.15
+  boundary_window_seconds: 0.25
+  activity_threshold: 0.5
+  activity_margin_threshold: 0.1
+  minimum_activity_interval: 0.2
+  embedding_margin_threshold: 0.1
+  cluster_margin_threshold: 0.12
+  review_padding_seconds: 0.5
+  export_review_clips: true
+  weights:
+    speaker_margin: 1.0
+    short_turn: 0.4
+    rapid_switch: 0.6
+    short_gap: 0.25
+    confirmed_overlap: 0.3
+    missed_overlap: 0.8
+    spurious_overlap: 0.8
+    uncertain_overlap: 0.7
+    boundary_uncertainty: 0.5
+    activity_disagreement: 0.7
+    cluster_margin: 0.8
 
 speaker_chunker:
   sample_rate: 16000

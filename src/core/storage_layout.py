@@ -119,13 +119,28 @@ class StorageLayout:
         return self.speaker_root(speaker_id) / "diarization"
 
     def diarization_json_path(self, speaker_id: str, source_id: str) -> Path:
-        return self.diarization_source_dir(speaker_id, source_id) / "diarization.json"
+        return self.diarization_annotation_dir(speaker_id, source_id) / "diarization.json"
 
     def diarization_rttm_path(self, speaker_id: str, source_id: str) -> Path:
-        return self.diarization_source_dir(speaker_id, source_id) / "diarization.rttm"
+        return self.diarization_annotation_dir(speaker_id, source_id) / "diarization.rttm"
+
+    def diarization_annotation_dir(self, speaker_id: str, source_id: str) -> Path:
+        return self.diarization_source_dir(speaker_id, source_id) / "annotation"
+
+    def diarization_final_dir(self, speaker_id: str, source_id: str) -> Path:
+        return self.diarization_source_dir(speaker_id, source_id) / "final"
 
     def diarization_segments_dir(self, speaker_id: str, source_id: str) -> Path:
-        return self.diarization_source_dir(speaker_id, source_id) / "segments"
+        return self.diarization_final_dir(speaker_id, source_id) / "segments"
+
+    def diarization_clean_segments_dir(self, speaker_id: str, source_id: str) -> Path:
+        return self.diarization_segments_dir(speaker_id, source_id)
+
+    def diarization_evidence_dir(self, speaker_id: str, source_id: str) -> Path:
+        return self.diarization_source_dir(speaker_id, source_id) / "diagnostics" / "evidence"
+
+    def diarization_quality_dir(self, speaker_id: str, source_id: str) -> Path:
+        return self.diarization_source_dir(speaker_id, source_id) / "diagnostics" / "quality"
 
     def prepared_dir(self, speaker_id: str) -> Path:
         return self.speaker_root(speaker_id) / "prepared"
