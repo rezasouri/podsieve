@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   lightweight-checks:
-    name: Python syntax and documentation links
+    name: Syntax, documentation and dependency-free tests
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
@@ -24,3 +24,5 @@ jobs:
         run: python -m compileall -q run.py src ui tests
       - name: Check relative Markdown links
         run: python scripts/check_docs_links.py
+      - name: Run lightweight runtime and storage regression tests
+        run: python -m unittest discover -s tests -p 'test_runtime.py' -v && python -m unittest discover -s tests -p 'test_ui_storage.py' -v
