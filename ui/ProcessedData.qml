@@ -8,12 +8,14 @@ Item {
     id: manager
     objectName: "processedData"
     signal addSource
-    signal processSource(string speaker, string source)
     property string selectedKey: ""
     property var checkedRows: []
     property int page: 1
     property int inspectorTab: 0
     property bool previewOpen: false
+    property real displayScale: 1
+    property bool compact: width <= 1280
+    property int sideMargin: compact ? 18 : 24
     property var records: pipelineBridge.sources
     property var selected: records.find(row => row.key === selectedKey) || null
     property var filtered: {
@@ -104,9 +106,31 @@ Item {
             previewError.visible = true;
         }
     }
-    component Caption: UiText {
+    component DataText: Text {
+        color: "#dbe1ea"
+        font.family: "Inter"
+        font.pixelSize: 11
+        font.weight: Font.Normal
+        font.bold: false
+        elide: Text.ElideRight
+    }
+    component Caption: DataText {
         color: "#8d9aaf"
-        font.pixelSize: 9
+        font.pixelSize: 10
+    }
+    component DataCard: Rectangle {
+        radius: 11
+        border.color: "#2a3443"
+        gradient: Gradient {
+            GradientStop {
+                position: 0
+                color: "#19202b"
+            }
+            GradientStop {
+                position: 1
+                color: "#141b25"
+            }
+        }
     }
     component Separator: Rectangle {
         Layout.fillWidth: true
@@ -118,7 +142,10 @@ Item {
         property var row: ({})
         spacing: 8
         UiCheck {
-            Layout.preferredWidth: 22
+            light: true
+            Layout.preferredWidth: 28
+            Layout.minimumWidth: 28
+            Layout.maximumWidth: 28
             checked: parent.header ? manager.visibleRecords.length > 0 && manager.visibleRecords.every(r => manager.checkedRows.includes(r.key)) : manager.checkedRows.includes(parent.row.key)
             onToggled: {
                 if (parent.header)
@@ -128,52 +155,86 @@ Item {
             }
             Accessible.name: parent.header ? "Select all visible sources" : "Select " + parent.row.id
         }
-        UiText {
+        DataText {
             Layout.preferredWidth: 88
+            Layout.minimumWidth: 88
+            Layout.maximumWidth: 88
             text: parent.header ? "SOURCE ID" : parent.row.id || ""
             color: "#aab5c5"
             font.family: "JetBrains Mono"
-            font.pixelSize: 9
+            font.pixelSize: 10
         }
         ColumnLayout {
             Layout.preferredWidth: 122
+            Layout.minimumWidth: 122
+            Layout.maximumWidth: 122
             spacing: 4
-            UiText {
+            DataText {
                 Layout.fillWidth: true
                 text: parent.parent.header ? "REGISTERED SPEAKER" : parent.parent.row.speakerName || ""
-                font.pixelSize: 9
+                color: parent.parent.header ? "#77869b" : "#dbe1ea"
+                font.pixelSize: parent.parent.header ? 9 : 11
+                font.weight: Font.Medium
             }
             Caption {
                 Layout.fillWidth: true
                 visible: !parent.parent.header
                 text: parent.parent.row.speaker || ""
-                font.pixelSize: 8
+                font.pixelSize: 10
+                color: "#6f7c90"
             }
         }
         ColumnLayout {
             Layout.fillWidth: true
-            Layout.minimumWidth: 150
+            Layout.minimumWidth: 170
             spacing: 4
-            UiText {
+            DataText {
                 Layout.fillWidth: true
                 text: parent.parent.header ? "SOURCE NAME" : parent.parent.row.name || ""
-                font.pixelSize: 9
+                color: parent.parent.header ? "#77869b" : "#dbe1ea"
+                font.pixelSize: parent.parent.header ? 9 : 11
+                font.weight: Font.Medium
             }
             Caption {
                 Layout.fillWidth: true
                 visible: !parent.parent.header
                 text: parent.parent.row.sourceRef || ""
-                font.pixelSize: 8
+                font.pixelSize: 10
             }
         }
-        UiText {
+        Item {
             Layout.preferredWidth: 74
-            text: parent.header ? "INPUT" : parent.row.input || ""
-            font.pixelSize: 9
-            color: parent.row.input === "YouTube" ? "#e2a0a7" : parent.row.input === "Castbox" ? "#d5b989" : "#9eabba"
+            Layout.minimumWidth: 74
+            Layout.maximumWidth: 74
+            implicitHeight: 22
+            Caption {
+                visible: parent.parent.header
+                text: "INPUT"
+                anchors.verticalCenter: parent.verticalCenter
+            }
+            Rectangle {
+                visible: !parent.parent.header
+                property string provider: parent.parent.row.input || ""
+                width: inputLabel.implicitWidth + 12
+                height: 20
+                radius: 5
+                anchors.verticalCenter: parent.verticalCenter
+                color: provider === "YouTube" ? "#322127" : provider === "Castbox" ? "#30291e" : "#1b232e"
+                border.color: provider === "YouTube" ? "#60353c" : provider === "Castbox" ? "#5e4b2e" : "#3b4655"
+                DataText {
+                    id: inputLabel
+                    anchors.centerIn: parent
+                    text: parent.provider
+                    font.pixelSize: 10
+                    font.weight: Font.DemiBold
+                    color: parent.provider === "YouTube" ? "#e2a0a7" : parent.provider === "Castbox" ? "#d5b989" : "#9eabba"
+                }
+            }
         }
         Item {
-            Layout.preferredWidth: 109
+            Layout.preferredWidth: 125
+            Layout.minimumWidth: 125
+            Layout.maximumWidth: 125
             implicitHeight: 22
             Caption {
                 visible: parent.parent.header
@@ -185,7 +246,9 @@ Item {
             }
         }
         Item {
-            Layout.preferredWidth: 82
+            Layout.preferredWidth: 90
+            Layout.minimumWidth: 90
+            Layout.maximumWidth: 90
             implicitHeight: 22
             Caption {
                 visible: parent.parent.header
@@ -198,12 +261,16 @@ Item {
         }
         Caption {
             Layout.preferredWidth: 67
+            Layout.minimumWidth: 67
+            Layout.maximumWidth: 67
             text: parent.header ? "STORAGE" : parent.row.size || ""
             font.family: "JetBrains Mono"
-            font.pixelSize: 9
+            font.pixelSize: 10
         }
         ColumnLayout {
             Layout.preferredWidth: 83
+            Layout.minimumWidth: 83
+            Layout.maximumWidth: 83
             spacing: 4
             Caption {
                 text: parent.parent.header ? "UPDATED" : (parent.parent.row.updated || "—").split(" ")[0]
@@ -211,14 +278,18 @@ Item {
             Caption {
                 visible: !parent.parent.header
                 text: (parent.parent.row.updated || "").split(" ")[1] || ""
-                font.pixelSize: 8
+                font.pixelSize: 10
             }
         }
         UiButton {
             visible: !parent.header
             Layout.preferredWidth: 27
+            Layout.minimumWidth: 27
+            Layout.maximumWidth: 27
             implicitHeight: 27
             symbol: "more"
+            flat: true
+            iconSize: 14
             hint: "View source files"
             onClicked: {
                 manager.choose(parent.row);
@@ -228,24 +299,46 @@ Item {
         Item {
             visible: parent.header
             Layout.preferredWidth: 27
+            Layout.minimumWidth: 27
+            Layout.maximumWidth: 27
         }
     }
     ColumnLayout {
         anchors.fill: parent
-        anchors.margins: 24
-        spacing: 13
+        anchors.leftMargin: manager.sideMargin
+        anchors.rightMargin: manager.sideMargin
+        anchors.topMargin: manager.compact ? 10 : 17
+        anchors.bottomMargin: manager.compact ? 12 : 20
+        spacing: manager.compact ? 9 : 13
         RowLayout {
             Layout.fillWidth: true
-            Layout.preferredHeight: 55
+            Layout.preferredHeight: manager.compact ? 49 : 60
             spacing: 12
             ColumnLayout {
                 Layout.fillWidth: true
                 spacing: 3
                 Caption {
-                    text: "●  LOCAL SOURCE REGISTRY"
-                    font.pixelSize: 9
+                    text: "LOCAL SOURCE REGISTRY"
+                    leftPadding: 12
+                    font.letterSpacing: 0.7
+                    Rectangle {
+                        x: 0
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: 5
+                        height: 5
+                        radius: 3
+                        color: "#35b8a9"
+                        Rectangle {
+                            anchors.centerIn: parent
+                            width: 11
+                            height: 11
+                            radius: 6
+                            color: "#1935b8a9"
+                        }
+                    }
+                    font.pixelSize: 10
                 }
-                UiText {
+                DataText {
                     text: "Processed Data"
                     font.pixelSize: 20
                     font.bold: true
@@ -261,27 +354,46 @@ Item {
             UiField {
                 id: search
                 objectName: "sourceSearch"
-                Layout.preferredWidth: 280
+                Layout.preferredWidth: Math.max(280, Math.min(430, manager.width * 0.27))
+                leftPadding: 34
+                font.family: "Inter"
+                UiIcon {
+                    name: "search"
+                    tint: "#718096"
+                    width: 16
+                    height: 16
+                    x: 11
+                    anchors.verticalCenter: parent.verticalCenter
+                }
                 placeholderText: "Search sources, speakers, files, or URLs…"
                 onTextChanged: manager.page = 1
                 Accessible.name: "Search processed sources"
             }
             UiButton {
                 text: "Refresh"
+                textSize: 10.5
+                iconSize: 14
                 symbol: "refresh"
                 enabled: !pipelineBridge.busy
                 onClicked: pipelineBridge.refreshSources()
             }
             UiButton {
                 text: "Add new source"
+                textSize: 10.5
                 symbol: "plus"
                 selected: true
+                textColor: "white"
+                background: Rectangle {
+                    radius: 6
+                    color: "#246fb8"
+                    border.color: "#367eba"
+                }
                 onClicked: manager.addSource()
             }
         }
-        UiCard {
+        DataCard {
             Layout.fillWidth: true
-            Layout.preferredHeight: 67
+            Layout.preferredHeight: manager.compact ? 60 : 67
             RowLayout {
                 anchors.fill: parent
                 spacing: 0
@@ -300,11 +412,12 @@ Item {
                                 width: 30
                                 height: 30
                                 radius: 7
-                                color: "#192b3e"
-                                border.color: "#324256"
-                                Image {
+                                color: index === 1 ? "#173532" : index === 2 ? "#362b1d" : index === 3 ? "#3c252b" : "#192b3e"
+                                border.color: index === 1 ? "#2c625d" : index === 2 ? "#6b512d" : index === 3 ? "#743b43" : "#324256"
+                                UiIcon {
                                     anchors.centerIn: parent
-                                    source: "assets/" + modelData.icon + ".svg"
+                                    name: modelData.icon
+                                    tint: modelData.color
                                     width: 16
                                     height: 16
                                 }
@@ -316,10 +429,11 @@ Item {
                                     text: modelData.label
                                     Layout.fillWidth: true
                                 }
-                                UiText {
+                                DataText {
                                     text: String(modelData.value)
-                                    color: modelData.color
-                                    font.pixelSize: 14
+                                    color: "#f1f4f9"
+                                    font.family: index === 4 ? "JetBrains Mono" : "Inter"
+                                    font.pixelSize: index === 4 ? 12 : 14
                                     font.bold: true
                                 }
                             }
@@ -339,7 +453,7 @@ Item {
             Layout.fillWidth: true
             Layout.fillHeight: true
             spacing: 12
-            UiCard {
+            DataCard {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 Layout.minimumWidth: 460
@@ -354,19 +468,21 @@ Item {
                         Layout.leftMargin: 15
                         Layout.rightMargin: 12
                         spacing: 6
-                        UiText {
+                        DataText {
                             text: "Registered Sources"
+                            font.pixelSize: 11
                             font.weight: Font.DemiBold
-                            Layout.fillWidth: true
                         }
                         Caption {
                             text: manager.filtered.length + " records"
+                            Layout.fillWidth: true
                         }
                         UiCombo {
                             id: speakers
                             objectName: "speakerFilter"
                             model: ["All speakers"].concat(Array.from(new Set(manager.records.map(r => r.speaker))))
-                            Layout.preferredWidth: 112
+                            Layout.preferredWidth: 108
+                            textSize: 10
                             implicitHeight: 28
                             onActivated: manager.page = 1
                         }
@@ -374,14 +490,16 @@ Item {
                             id: statuses
                             objectName: "statusFilter"
                             model: ["All statuses", "Completed", "Processing", "Failed", "Pending"]
-                            Layout.preferredWidth: 105
+                            Layout.preferredWidth: 103
+                            textSize: 10
                             implicitHeight: 28
                             onActivated: manager.page = 1
                         }
                         UiCombo {
                             id: sorting
                             model: ["Newest updated", "Filename A–Z", "Largest storage", "Most processed"]
-                            Layout.preferredWidth: 130
+                            Layout.preferredWidth: 122
+                            textSize: 10
                             implicitHeight: 28
                             onActivated: manager.page = 1
                         }
@@ -392,8 +510,8 @@ Item {
                         Layout.fillWidth: true
                         Layout.fillHeight: true
                         clip: true
-                        contentWidth: Math.max(width, 1030)
-                        contentHeight: Math.max(height, 34 + manager.visibleRecords.length * 58)
+                        contentWidth: Math.max(width, 969)
+                        contentHeight: Math.max(height, 34 + manager.visibleRecords.length * (manager.compact ? 53 : 58))
                         ScrollBar.horizontal: ScrollBar {}
                         ScrollBar.vertical: ScrollBar {}
                         Rectangle {
@@ -415,8 +533,21 @@ Item {
                                 Rectangle {
                                     required property var modelData
                                     width: table.contentWidth
-                                    height: 58
-                                    color: manager.selectedKey === modelData.key ? "#1b3045" : rowMouse.containsMouse ? "#202936" : "transparent"
+                                    height: manager.compact ? 53 : 58
+                                    color: rowMouse.containsMouse ? "#202936" : "transparent"
+                                    gradient: manager.selectedKey === modelData.key ? selectionGradient : null
+                                    Gradient {
+                                        id: selectionGradient
+                                        orientation: Gradient.Horizontal
+                                        GradientStop {
+                                            position: 0
+                                            color: "#6b1d476f"
+                                        }
+                                        GradientStop {
+                                            position: 1
+                                            color: "#52192a3b"
+                                        }
+                                    }
                                     MouseArea {
                                         id: rowMouse
                                         anchors.fill: parent
@@ -439,7 +570,7 @@ Item {
                                         visible: manager.selectedKey === modelData.key
                                         y: 7
                                         width: 2
-                                        height: 44
+                                        height: parent.height - 14
                                         color: "#4b9af2"
                                     }
                                 }
@@ -456,7 +587,7 @@ Item {
                                 width: 32
                                 height: 32
                             }
-                            UiText {
+                            DataText {
                                 text: manager.records.length ? "No matching sources" : "No registered sources"
                                 Layout.alignment: Qt.AlignHCenter
                             }
@@ -482,6 +613,8 @@ Item {
                         }
                         UiButton {
                             text: "Previous"
+                            textSize: 10
+                            padding: 9
                             implicitHeight: 26
                             enabled: manager.page > 1
                             onClicked: manager.page--
@@ -491,6 +624,8 @@ Item {
                         }
                         UiButton {
                             text: "Next"
+                            textSize: 10
+                            padding: 9
                             implicitHeight: 26
                             enabled: manager.page < manager.pageCount
                             onClicked: manager.page++
@@ -498,9 +633,10 @@ Item {
                     }
                 }
             }
-            UiCard {
-                Layout.preferredWidth: Math.max(365, manager.width * 0.29)
-                Layout.minimumWidth: 365
+            DataCard {
+                Layout.preferredWidth: Math.max(manager.compact ? 350 : 365, (manager.width - manager.sideMargin * 2 - 12) * (manager.compact ? 0.9 / 2.75 : 0.95 / 3))
+                Layout.minimumWidth: manager.compact ? 350 : 365
+                Layout.maximumWidth: Layout.preferredWidth
                 Layout.fillHeight: true
                 clip: true
                 ColumnLayout {
@@ -509,7 +645,7 @@ Item {
                     visible: manager.selected !== null
                     RowLayout {
                         Layout.fillWidth: true
-                        Layout.preferredHeight: 69
+                        Layout.preferredHeight: manager.compact ? 62 : 69
                         Layout.leftMargin: 13
                         Layout.rightMargin: 13
                         spacing: 10
@@ -517,13 +653,14 @@ Item {
                             width: 36
                             height: 36
                             radius: 8
-                            color: "#19324a"
-                            border.color: "#355f86"
-                            Image {
+                            color: manager.selected && manager.selected.input === "YouTube" ? "#3c252b" : manager.selected && manager.selected.input === "Castbox" ? "#362b1d" : "#19324a"
+                            border.color: manager.selected && manager.selected.input === "YouTube" ? "#743b43" : manager.selected && manager.selected.input === "Castbox" ? "#6b512d" : "#355f86"
+                            UiIcon {
                                 anchors.centerIn: parent
+                                tint: manager.selected && manager.selected.input === "YouTube" ? "#ed8b94" : "#7eb7ef"
                                 width: 18
                                 height: 18
-                                source: "assets/" + (manager.selected && manager.selected.input === "Local File" ? "file" : "link") + ".svg"
+                                name: manager.selected && manager.selected.input === "Local File" ? "file" : "link"
                             }
                         }
                         ColumnLayout {
@@ -531,9 +668,9 @@ Item {
                             spacing: 3
                             Caption {
                                 text: "SOURCE INSPECTOR"
-                                font.pixelSize: 8
+                                font.pixelSize: 10
                             }
-                            UiText {
+                            DataText {
                                 text: manager.selected ? manager.selected.name : ""
                                 Layout.fillWidth: true
                                 font.weight: Font.DemiBold
@@ -541,7 +678,7 @@ Item {
                             Caption {
                                 text: manager.selected ? manager.selected.id : ""
                                 font.family: "JetBrains Mono"
-                                font.pixelSize: 9
+                                font.pixelSize: 10
                             }
                         }
                         StatusBadge {
@@ -561,9 +698,47 @@ Item {
                                 required property string modelData
                                 required property int index
                                 text: modelData + (index === 2 && manager.selected ? "  " + manager.selected.artifacts : "")
-                                selected: manager.inspectorTab === index
-                                implicitHeight: 30
-                                Layout.fillWidth: true
+                                contentItem: Row {
+                                    spacing: 5
+                                    DataText {
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        text: modelData
+                                        font.pixelSize: 10
+                                        font.weight: Font.DemiBold
+                                        color: manager.inspectorTab === index ? "#dcecff" : "#8d9aaf"
+                                    }
+                                    Rectangle {
+                                        visible: index === 2
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        width: Math.max(17, countText.implicitWidth + 8)
+                                        height: 15
+                                        radius: 8
+                                        color: "#283241"
+                                        Caption {
+                                            id: countText
+                                            anchors.centerIn: parent
+                                            text: manager.selected ? manager.selected.artifacts : 0
+                                            font.pixelSize: 10
+                                        }
+                                    }
+                                }
+                                textSize: 10
+                                textColor: manager.inspectorTab === index ? "#dcecff" : "#8d9aaf"
+                                padding: 9
+                                implicitHeight: 38
+                                flat: true
+                                background: Item {
+                                    Rectangle {
+                                        anchors.bottom: parent.bottom
+                                        anchors.left: parent.left
+                                        anchors.right: parent.right
+                                        anchors.leftMargin: 7
+                                        anchors.rightMargin: 7
+                                        height: 2
+                                        visible: manager.inspectorTab === index
+                                        color: "#4b9af2"
+                                    }
+                                }
                                 onClicked: manager.inspectorTab = index
                             }
                         }
@@ -581,25 +756,34 @@ Item {
                             ColumnLayout {
                                 visible: manager.inspectorTab === 0
                                 Layout.fillWidth: true
-                                Layout.margins: 14
-                                spacing: 10
+                                Layout.leftMargin: 14
+                                Layout.rightMargin: 14
+                                Layout.topMargin: 4
+                                Layout.bottomMargin: 14
+                                spacing: 0
                                 Repeater {
-                                    model: manager.selected ? [["Source ID", manager.selected.id], ["Speaker ID", manager.selected.speaker], ["Registered speaker", manager.selected.speakerName], ["Original filename", manager.selected.name], ["Input type", manager.selected.input], ["Language", manager.selected.language], ["Created", manager.selected.created], ["Last updated", manager.selected.updated], ["Storage used", manager.selected.size]] : []
+                                    model: manager.selected ? [["Source ID", manager.selected.id], ["Speaker ID", manager.selected.speaker], ["Registered speaker", manager.selected.speakerName], ["Original filename", manager.selected.name], ["Input type", manager.selected.input], ["Language", ({
+                                                    fa: "Persian (fa)",
+                                                    en: "English (en)"
+                                                })[manager.selected.language] || manager.selected.language], ["Created", manager.selected.created], ["Last updated", manager.selected.updated], ["Storage used", manager.selected.size]] : []
                                     ColumnLayout {
                                         required property var modelData
                                         Layout.fillWidth: true
-                                        spacing: 8
+                                        spacing: 0
                                         RowLayout {
                                             Layout.fillWidth: true
+                                            Layout.preferredHeight: 35
                                             Caption {
                                                 text: modelData[0]
                                                 Layout.preferredWidth: 120
                                             }
-                                            UiText {
+                                            DataText {
                                                 text: modelData[1]
                                                 Layout.fillWidth: true
                                                 horizontalAlignment: Text.AlignRight
                                                 font.pixelSize: 10
+                                                font.weight: Font.Medium
+                                                color: "#c8d0dc"
                                             }
                                         }
                                         Separator {}
@@ -607,59 +791,99 @@ Item {
                                 }
                                 Caption {
                                     text: "Original source"
+                                    Layout.topMargin: 11
+                                    Layout.bottomMargin: 5
                                 }
                                 UiField {
                                     readOnly: true
                                     mono: true
+                                    implicitHeight: 31
+                                    font.pixelSize: 10
                                     text: manager.selected ? manager.selected.sourceRef : ""
                                     Layout.fillWidth: true
                                 }
                                 Caption {
                                     text: "Output directory"
+                                    Layout.topMargin: 11
+                                    Layout.bottomMargin: 5
                                 }
                                 UiField {
                                     readOnly: true
                                     mono: true
+                                    implicitHeight: 31
+                                    font.pixelSize: 10
                                     text: manager.selected ? manager.selected.outputPath : ""
                                     Layout.fillWidth: true
-                                }
-                                UiButton {
-                                    text: "Continue in Process Audio"
-                                    symbol: "wave"
-                                    Layout.fillWidth: true
-                                    enabled: !pipelineBridge.busy
-                                    onClicked: manager.processSource(manager.selected.speaker, manager.selected.id)
                                 }
                             }
                             ColumnLayout {
                                 visible: manager.inspectorTab === 1
                                 Layout.fillWidth: true
-                                Layout.margins: 14
-                                spacing: 14
+                                Layout.leftMargin: 14
+                                Layout.rightMargin: 14
+                                Layout.topMargin: 12
+                                spacing: 0
                                 Repeater {
                                     model: manager.selected ? manager.selected.stages : []
-                                    RowLayout {
+                                    Item {
+                                        id: historyRow
                                         required property string modelData
                                         required property int index
                                         Layout.fillWidth: true
-                                        Layout.minimumHeight: 60
-                                        spacing: 9
-                                        StatusBadge {
-                                            status: modelData === "not-started" ? "pending" : modelData
-                                            implicitWidth: 78
+                                        implicitHeight: 70
+                                        Rectangle {
+                                            visible: historyRow.index < 3
+                                            x: 13
+                                            y: 26
+                                            width: 1
+                                            height: 44
+                                            color: "#34404f"
                                         }
-                                        ColumnLayout {
-                                            Layout.fillWidth: true
-                                            spacing: 5
-                                            UiText {
-                                                text: (index + 1) + ". " + ["Ingest", "Convert", "Separate", "Diarize"][index]
+                                        Rectangle {
+                                            width: 27
+                                            height: 27
+                                            radius: 14
+                                            color: historyRow.modelData === "completed" ? "#173532" : historyRow.modelData === "failed" ? "#3b252b" : historyRow.modelData === "processing" ? "#183555" : "#19212b"
+                                            border.color: historyRow.modelData === "completed" ? "#2b625c" : historyRow.modelData === "failed" ? "#713a42" : historyRow.modelData === "processing" ? "#346da4" : "#3c4655"
+                                            UiIcon {
+                                                visible: historyRow.modelData === "completed" || historyRow.modelData === "failed"
+                                                anchors.centerIn: parent
+                                                width: 12
+                                                height: 12
+                                                name: historyRow.modelData === "completed" ? "check" : "x"
+                                                tint: historyRow.modelData === "completed" ? "#75cfc5" : "#ef9099"
+                                            }
+                                            Caption {
+                                                visible: historyRow.modelData !== "completed" && historyRow.modelData !== "failed"
+                                                anchors.centerIn: parent
+                                                text: historyRow.index + 1
+                                            }
+                                        }
+                                        Column {
+                                            x: 36
+                                            y: 2
+                                            width: Math.max(0, parent.width - 145)
+                                            spacing: 4
+                                            DataText {
+                                                text: ["Ingest", "Convert", "Separate", "Diarize"][historyRow.index]
+                                                font.pixelSize: 10
                                                 font.weight: Font.DemiBold
                                             }
                                             Caption {
-                                                text: manager.selected ? manager.selected.stageTimes[index] : "—"
-                                                Layout.fillWidth: true
+                                                width: parent.width
                                                 wrapMode: Text.WordWrap
+                                                text: ["Import or download source audio", "Prepare the working WAV file", "Extract the vocal audio track", "Create speaker-labeled segments"][historyRow.index]
                                             }
+                                        }
+                                        Caption {
+                                            anchors.right: parent.right
+                                            y: 4
+                                            width: 100
+                                            horizontalAlignment: Text.AlignRight
+                                            font.family: "JetBrains Mono"
+                                            font.pixelSize: 10
+                                            text: manager.selected ? manager.selected.stageTimes[historyRow.index] : "—"
+                                            wrapMode: Text.WordWrap
                                         }
                                     }
                                 }
@@ -681,12 +905,36 @@ Item {
                                     ColumnLayout {
                                         id: fileGroup
                                         required property var modelData
-                                        property bool expanded: true
+                                        property bool expanded: ["Raw Audio", "Separated Audio", "Diarization"].includes(modelData.name)
                                         Layout.fillWidth: true
                                         spacing: 5
                                         UiButton {
-                                            text: (fileGroup.expanded ? "⌄  " : "›  ") + modelData.name + "  " + modelData.files.filter(f => f.available).length + "/" + modelData.files.length
+                                            contentItem: RowLayout {
+                                                spacing: 7
+                                                Caption {
+                                                    text: fileGroup.expanded ? "⌄" : "›"
+                                                    font.pixelSize: 12
+                                                }
+                                                UiIcon {
+                                                    name: "folder"
+                                                    tint: "#d5b989"
+                                                    Layout.preferredWidth: 15
+                                                    Layout.preferredHeight: 15
+                                                }
+                                                DataText {
+                                                    text: fileGroup.modelData.name
+                                                    font.pixelSize: 10
+                                                    Layout.fillWidth: true
+                                                }
+                                                Caption {
+                                                    text: fileGroup.modelData.files.filter(f => f.available).length + "/" + fileGroup.modelData.files.length
+                                                    font.family: "JetBrains Mono"
+                                                    font.pixelSize: 10
+                                                }
+                                            }
                                             symbol: "folder"
+                                            flat: true
+                                            textSize: 10
                                             Layout.fillWidth: true
                                             implicitHeight: 28
                                             onClicked: fileGroup.expanded = !fileGroup.expanded
@@ -696,30 +944,42 @@ Item {
                                             RowLayout {
                                                 required property var modelData
                                                 Layout.fillWidth: true
+                                                Layout.leftMargin: 26
+                                                Layout.preferredHeight: 30
                                                 spacing: 5
                                                 opacity: modelData.available ? 1 : 0.45
-                                                UiText {
+                                                UiIcon {
+                                                    name: "file"
+                                                    Layout.preferredWidth: 15
+                                                    Layout.preferredHeight: 15
+                                                    tint: "#718096"
+                                                }
+                                                DataText {
                                                     text: modelData.name
                                                     Layout.fillWidth: true
-                                                    font.pixelSize: 9
+                                                    font.pixelSize: 10
                                                     elide: Text.ElideMiddle
                                                 }
                                                 Caption {
                                                     text: modelData.available ? modelData.size : "Not generated"
-                                                    font.pixelSize: 8
+                                                    font.pixelSize: 10
                                                 }
                                                 UiButton {
                                                     symbol: "copy"
-                                                    implicitHeight: 26
-                                                    Layout.preferredWidth: 26
+                                                    implicitHeight: 22
+                                                    flat: true
+                                                    iconSize: 11
+                                                    Layout.preferredWidth: 22
                                                     enabled: modelData.available
                                                     hint: "Copy artifact path"
                                                     onClicked: pipelineBridge.copyArtifactPath(modelData.path)
                                                 }
                                                 UiButton {
                                                     symbol: "external"
-                                                    implicitHeight: 26
-                                                    Layout.preferredWidth: 26
+                                                    implicitHeight: 22
+                                                    flat: true
+                                                    iconSize: 11
+                                                    Layout.preferredWidth: 22
                                                     enabled: modelData.available
                                                     hint: "Open containing folder"
                                                     onClicked: pipelineBridge.openArtifactFolder(modelData.path)
@@ -792,7 +1052,10 @@ Item {
                         UiButton {
                             text: "Open output"
                             symbol: "folder"
-                            implicitHeight: 30
+                            implicitHeight: 32
+                            textSize: 10
+                            iconSize: 13
+                            padding: 7
                             Layout.fillWidth: true
                             enabled: manager.selected && manager.selected.outputAvailable
                             onClicked: pipelineBridge.openArtifactFolder(manager.selected.outputPath)
@@ -800,7 +1063,10 @@ Item {
                         UiButton {
                             text: "Preview audio"
                             symbol: "volume"
-                            implicitHeight: 30
+                            implicitHeight: 32
+                            textSize: 10
+                            iconSize: 13
+                            padding: 7
                             Layout.fillWidth: true
                             enabled: manager.selected && manager.selected.previewUri.length > 0
                             onClicked: {
@@ -809,20 +1075,21 @@ Item {
                                     player.stop();
                             }
                         }
-                    }
-                    UiButton {
-                        objectName: "deleteSourceButton"
-                        text: "Delete source"
-                        symbol: "trash"
-                        Layout.fillWidth: true
-                        Layout.leftMargin: 10
-                        Layout.rightMargin: 10
-                        Layout.bottomMargin: 10
-                        implicitHeight: 30
-                        enabled: manager.selected !== null && !pipelineBridge.busy
-                        onClicked: {
-                            confirmation.text = "";
-                            deletion.open();
+                        UiButton {
+                            objectName: "deleteSourceButton"
+                            text: "Delete source"
+                            symbol: "trash"
+                            Layout.fillWidth: true
+                            danger: true
+                            implicitHeight: 32
+                            textSize: 10
+                            iconSize: 13
+                            padding: 7
+                            enabled: manager.selected !== null && !pipelineBridge.busy
+                            onClicked: {
+                                confirmation.text = "";
+                                deletion.open();
+                            }
                         }
                     }
                     Caption {
@@ -843,7 +1110,7 @@ Item {
                         width: 36
                         height: 36
                     }
-                    UiText {
+                    DataText {
                         text: "No source selected"
                         Layout.alignment: Qt.AlignHCenter
                     }
@@ -859,6 +1126,7 @@ Item {
     }
     Popup {
         id: deletion
+        scale: manager.displayScale
         objectName: "deleteSourceDialog"
         parent: Overlay.overlay
         anchors.centerIn: parent
@@ -871,13 +1139,13 @@ Item {
         Overlay.modal: Rectangle {
             color: "#99000000"
         }
-        background: UiCard {
+        background: DataCard {
             border.color: "#67343b"
         }
         ColumnLayout {
             anchors.fill: parent
             spacing: 12
-            UiText {
+            DataText {
                 text: pipelineBridge.busy ? "Deleting Source Data…" : "Delete Source and Generated Data?"
                 font.pixelSize: 17
                 font.bold: true
@@ -890,7 +1158,7 @@ Item {
                 font.pixelSize: 11
             }
             Separator {}
-            UiText {
+            DataText {
                 text: manager.selected ? manager.selected.id + "  ·  " + manager.selected.speaker : ""
                 font.family: "JetBrains Mono"
             }

@@ -3,12 +3,17 @@ import QtQuick.Controls
 
 ComboBox {
     id: control
+    property real textSize: 11
     implicitHeight: 34
     font.family: "Inter"
     font.pixelSize: 11
     leftPadding: 10
     rightPadding: 25
-    contentItem: UiText {
+    contentItem: Text {
+        font.family: "Inter"
+        font.pointSize: control.textSize * 0.75
+        color: "#b2bdcd"
+        elide: Text.ElideRight
         text: control.displayText
         verticalAlignment: Text.AlignVCenter
     }
@@ -27,7 +32,11 @@ ComboBox {
         width: control.width
         height: 32
         required property var modelData
-        contentItem: UiText {
+        contentItem: Text {
+            font.family: "Inter"
+            font.pointSize: control.textSize * 0.75
+            color: "#b2bdcd"
+            elide: Text.ElideRight
             text: modelData
             verticalAlignment: Text.AlignVCenter
         }

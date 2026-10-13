@@ -5,6 +5,7 @@ No HTTP server or fake processing; real runs happen on a QThread.
 from __future__ import annotations
 
 import logging
+import os
 import tempfile
 import re
 from datetime import datetime
@@ -149,6 +150,7 @@ class PipelineWorker(QThread):
 class PipelineBridge(QObject):
     stateChanged = Signal()
     sourcesChanged = Signal()
+    setupChanged = Signal()
     busyChanged = Signal()
     messageChanged = Signal()
 
@@ -158,7 +160,7 @@ class PipelineBridge(QObject):
         self._logs = []
         self._queue = []
         self._failures = {}
-        self._selected = ("speaker_001", "source_001")
+        self._selected = ("", "")
         self._active = ""
         self._output = ""
         self._output_parent = ""
@@ -167,9 +169,42 @@ class PipelineBridge(QObject):
         self._busy = False
         self._message = "Ready"
         self._worker = None
+        self._setup_error = ""
         self.refreshSources()
-        self.selectSource(*self._selected)
         self._append_log("PodSieve initialized.")
+
+    @Property(bool, notify=setupChanged)
+    def needsTokenSetup(self):
+        return not (ROOT / ".env").exists()
+
+    @Property(str, notify=setupChanged)
+    def tokenSetupError(self):
+        return self._setup_error
+
+    @Slot(str, result=bool)
+    def saveHuggingFaceToken(self, value):
+        token = value.strip()
+        if not re.fullmatch(r"hf_[A-Za-z0-9]+", token):
+            self._setup_error = "Enter a Hugging Face token starting with hf_."
+            self.setupChanged.emit()
+            return False
+        try:
+            # Exclusive creation preserves an existing .env, including a file
+            # created by another process while the setup dialog was open.
+            with open(ROOT / ".env", "x", encoding="utf-8", opener=lambda path, flags: os.open(path, flags, 0o600)) as handle:
+                handle.write("HF_TOKEN=" + token + "\n")
+        except FileExistsError:
+            self._setup_error = ".env already exists. Its contents were kept."
+            self.setupChanged.emit()
+            return False
+        except OSError:
+            self._setup_error = "Could not create .env. Check project folder permissions."
+            self.setupChanged.emit()
+            return False
+        os.environ["HF_TOKEN"] = token
+        self._setup_error = ""
+        self.setupChanged.emit()
+        return True
 
     @Property("QVariantList", notify=stateChanged)
     def stageStates(self):
@@ -248,6 +283,22 @@ class PipelineBridge(QObject):
     @Slot()
     def clearLogs(self):
         self._logs = []
+        self.stateChanged.emit()
+
+    @Slot()
+    def clearProcessing(self):
+        """Reset the desktop form/session without changing stored source data."""
+        if self._busy:
+            return
+        self._selected = ("", "")
+        self._states = ["not-started"] * 4
+        self._logs = []
+        self._queue = []
+        self._params = {}
+        self._active = ""
+        self._output = ""
+        self._output_parent = ""
+        self._set_message("Ready")
         self.stateChanged.emit()
 
     @Slot(str, str)

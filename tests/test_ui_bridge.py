@@ -49,6 +49,57 @@ class DesktopBridgeTests(unittest.TestCase):
         self.assertFalse(self.bridge.busy, "Worker did not finish")
         self.app.processEvents()
 
+    def test_token_setup_creates_private_env_without_overwriting(self):
+        self.assertTrue(self.bridge.needsTokenSetup)
+        self.assertFalse(self.bridge.saveHuggingFaceToken("bad\nvalue"))
+        self.assertFalse((self.root / ".env").exists())
+        token = "hf_TestTokenForLocalSetup123"
+        with patch.dict(os.environ, {}, clear=False):
+            self.assertTrue(self.bridge.saveHuggingFaceToken(token))
+            self.assertEqual(os.environ["HF_TOKEN"], token)
+        path = self.root / ".env"
+        self.assertEqual(path.read_text(), "HF_TOKEN=" + token + "\n")
+        self.assertEqual(path.stat().st_mode & 0o777, 0o600)
+        self.assertFalse(self.bridge.needsTokenSetup)
+        self.assertFalse(self.bridge.saveHuggingFaceToken("hf_OtherToken123"))
+        self.assertEqual(path.read_text(), "HF_TOKEN=" + token + "\n")
+        self.assertNotIn(token, str(self.bridge.logs))
+        self.assertNotIn(token, self.bridge.tokenSetupError)
+
+    def test_startup_does_not_select_saved_source(self):
+        self.bridge.execute("ingest", self.options)
+        self.wait_for_worker()
+        restarted = desktop.PipelineBridge()
+        self.assertEqual(restarted.stageStates, ["not-started"] * 4)
+        self.assertEqual(restarted.outputPath, "")
+        self.assertFalse(restarted.outputAvailable)
+        self.assertTrue(restarted.sources)
+        restarted.selectSource("speaker_001", "source_001")
+        self.assertEqual(restarted.stageStates[0], "completed")
+
+    def test_clear_processing_keeps_saved_sources_and_ignores_busy_reset(self):
+        self.bridge.execute("ingest", self.options)
+        self.wait_for_worker()
+        sources = self.bridge.sources
+        raw = self.root / "data/speakers/speaker_001/raw/source_001.wav"
+        self.assertTrue(raw.is_file())
+        self.bridge.setOutputParent(str(self.root))
+        self.bridge._busy = True
+        self.bridge.clearProcessing()
+        self.assertEqual(self.bridge.stageStates[0], "completed")
+        self.assertTrue(self.bridge.outputParent)
+        self.bridge._busy = False
+        self.bridge.clearProcessing()
+        self.assertEqual(self.bridge.stageStates, ["not-started"] * 4)
+        self.assertEqual(self.bridge.logs, [])
+        self.assertEqual(self.bridge.outputPath, "")
+        self.assertEqual(self.bridge.outputParent, "")
+        self.assertFalse(self.bridge.outputAvailable)
+        self.assertEqual(self.bridge.activeStage, "")
+        self.assertEqual(self.bridge.message, "Ready")
+        self.assertEqual(self.bridge.sources, sources)
+        self.assertTrue(raw.is_file())
+
     def test_real_ingest_and_convert(self):
         self.bridge.execute("ingest", self.options)
         self.wait_for_worker()

@@ -26,6 +26,11 @@ window = engine.rootObjects()[0]
 window.setProperty("pageView", "process")
 import tempfile
 output_tmp = tempfile.TemporaryDirectory()
+assert window.findChild(QObject, "speaker").property("text") == ""
+assert window.findChild(QObject, "sourceId").property("text") == ""
+assert bridge.stageStates == ["not-started"] * 4
+assert bridge.outputPath == ""
+window.findChild(QObject, "sourceId").setProperty("text", "source_001")
 window.findChild(QObject, "speaker").setProperty("text", "hamid")
 assert window.property("idsValid")
 bridge.setOutputParent(output_tmp.name)
@@ -81,6 +86,43 @@ def check_resize():
             assert abs(fill.property("width") - track.property("width")) < 0.01
         for i in (1, 2):
             assert not find_item("stageCompletedFill" + str(i)).property("visible")
+        assert window.property("minimumWidth") == 1180
+        assert window.property("minimumHeight") == 720
+        window.setWidth(1920)
+        window.setHeight(1080)
+        app.processEvents()
+        scale = window.property("uiScale")
+        assert 1 < scale <= 1.75
+        nav = window.findChild(QObject, "headerNavigation")
+        assert abs(nav.property("x") + nav.property("width") / 2 - nav.parentItem().width() / 2) < 0.1
+        canvas = window.findChild(QObject, "responsiveCanvas")
+        assert abs(canvas.property("width") * scale - window.width()) < 0.1
+        window.setWidth(1180)
+        window.setHeight(720)
+        app.processEvents()
+        assert window.property("uiScale") == 1
+        assert abs(nav.property("x") + nav.property("width") / 2 - nav.parentItem().width() / 2) < 0.1
+        from PySide6.QtCore import QMetaObject
+        window.findChild(QObject, "file").setProperty("text", "/tmp/input.wav")
+        window.findChild(QObject, "overwrite").setProperty("checked", True)
+        button = window.findChild(QObject, "clearProcessingButton")
+        bridge._busy = True
+        bridge.busyChanged.emit()
+        assert not button.property("enabled")
+        bridge._busy = False
+        bridge.busyChanged.emit()
+        assert button.property("enabled")
+        assert QMetaObject.invokeMethod(button, "clicked")
+        assert window.findChild(QObject, "file").property("text") == ""
+        assert window.findChild(QObject, "speaker").property("text") == ""
+        assert window.findChild(QObject, "sourceId").property("text") == ""
+        assert not window.findChild(QObject, "overwrite").property("checked")
+        assert window.findChild(QObject, "evidence").property("checked")
+        assert window.findChild(QObject, "quality").property("checked")
+        assert bridge.stageStates == ["not-started"] * 4
+        assert bridge.logs == []
+        assert bridge.outputPath == "" and bridge.outputParent == ""
+        assert not window.property("canFull")
         app.quit()
     except Exception:
         import traceback

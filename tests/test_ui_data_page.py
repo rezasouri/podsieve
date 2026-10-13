@@ -49,6 +49,12 @@ def value(obj, prop):
 
 def inspect():
     try:
+        setup = window.findChild(QObject, "tokenSetupDialog")
+        assert setup is not None and setup.property("visible")
+        token_input = window.findChild(QObject, "huggingFaceTokenInput")
+        assert token_input.property("text") == ""
+        assert not window.findChild(QObject, "saveHuggingFaceTokenButton").property("enabled")
+        assert QMetaObject.invokeMethod(setup, "close")
         manager = window.findChild(QObject, "processedData")
         assert manager is not None
         assert len(value(manager, "records")) == 2
