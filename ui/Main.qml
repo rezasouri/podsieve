@@ -5,7 +5,7 @@ import QtQuick.Layouts
 ApplicationWindow {
  id: app
  width: 1440; height: 900; minimumWidth: 1050; minimumHeight: 700
- visible: true; title: "PodSieve — UI Prototype (Mock Data)"
+ visible: true; title: "PodSieve — Local Workspace"
  color: "#11151D"
  property string page: "Dataset"
  property int selected: 0
@@ -25,7 +25,7 @@ ApplicationWindow {
  readonly property color teal: "#1DA99D"
  readonly property color amber: "#E8A44B"
  readonly property color purple: "#9877DA"
- property var sourceRows: [
+ property var demoRows: [
   {id:"source_001",speaker:"speaker_001",name:"Podcast A",input:"YouTube",duration:"02:31:48",stage:"Diarize",status:"Needs review"},
   {id:"source_002",speaker:"speaker_003",name:"Interview",input:"Local",duration:"00:46:12",stage:"Separate",status:"Completed"},
   {id:"source_003",speaker:"speaker_004",name:"Audiobook",input:"Castbox",duration:"01:12:05",stage:"Convert",status:"Pending"},
@@ -33,6 +33,8 @@ ApplicationWindow {
   {id:"source_005",speaker:"speaker_008",name:"Session",input:"Local",duration:"03:18:27",stage:"Quality",status:"Needs review"},
   {id:"source_006",speaker:"speaker_009",name:"Talk",input:"Castbox",duration:"01:04:33",stage:"Ingest",status:"Completed"}
  ]
+ property var sourceRows: pipelineBridge.sources.length ? pipelineBridge.sources : []
+ property bool overwriteStage: false
  property var issueRows: [
   {time:"00:42–00:45",type:"Speaker ambiguity",assigned:"SPEAKER_00",candidate:"SPEAKER_01",score:"0.86"},
   {time:"01:12–01:14",type:"Detected overlap",assigned:"SPEAKER_01",candidate:"SPEAKER_00",score:"0.74"},
@@ -73,7 +75,7 @@ ApplicationWindow {
      }
     }
     Item {Layout.fillHeight:true}
-    Caption {text:"● UI DEMO • NO BACKEND"; color: app.amber}
+    Caption {text:pipelineBridge.busy ? "● PROCESSING" : "● LOCAL PYTHON"; color: app.amber}
    }
   }
   ColumnLayout {
@@ -83,7 +85,7 @@ ApplicationWindow {
     RowLayout {anchors.fill:parent; anchors.leftMargin:27; anchors.rightMargin:27
      Caption {text:"Workspace / " + page}
      Item {Layout.fillWidth:true}
-     Caption {text:"Local mock workspace"}
+     Caption {text:pipelineBridge.busy ? "Running pipeline..." : pipelineBridge.message; Layout.maximumWidth: 530; elide: Text.ElideRight}
     }
    }
    StackLayout {
@@ -91,9 +93,9 @@ ApplicationWindow {
     Item {
      ColumnLayout {anchors.fill:parent; anchors.margins:27; spacing:18
       RowLayout {
-       ColumnLayout {Heading {text:"Dataset Manager"} Caption {text:"Manage source audio, registered speakers, and pipeline states"}}
+       ColumnLayout {Heading {text:"Dataset Manager"} Caption {text:"Registered audio sources and processing stages from local metadata"}}
        Item {Layout.fillWidth:true}
-       UiButton {text:"+ Add source"; primary:true; onClicked:ingestDialog.open()}
+       UiButton {text:"+ Add source"; primary:true; enabled: !pipelineBridge.busy; onClicked:ingestDialog.open()}
       }
       RowLayout {spacing:14
        Repeater {model:[["REGISTERED SPEAKERS","24"],["AUDIO SOURCES","186"],["PROCESSED","142"],["NEEDS REVIEW","17"]]
@@ -106,7 +108,7 @@ ApplicationWindow {
       }
       Card {Layout.fillWidth:true; Layout.fillHeight:true
        ColumnLayout {anchors.fill:parent; anchors.margins:19; spacing:10
-        RowLayout {Text {text:"All audio sources"; color:app.textMain; font.pixelSize:18; font.bold:true} Item{Layout.fillWidth:true} Caption{text:"Example data"}}
+        RowLayout {Text {text:"All audio sources"; color:app.textMain; font.pixelSize:18; font.bold:true} Item{Layout.fillWidth:true} Caption{text:"Local metadata"}}
         UiField {Layout.fillWidth:true; placeholderText:"Search by source ID, speaker or title"; onTextChanged: app.query=text}
         Rectangle {Layout.fillWidth:true; height:36; color:app.sidebar; radius:5
          RowLayout {anchors.fill:parent; anchors.leftMargin:12
@@ -135,7 +137,7 @@ ApplicationWindow {
     Item {
      ColumnLayout {anchors.fill:parent; anchors.margins:27; spacing:18
       Heading {text:"Processing Workspace"}
-      Caption {text:app.sourceRows[app.selected].id+" · "+app.sourceRows[app.selected].name+"  — simulation only"}
+      Caption {text:app.sourceRows.length ? app.sourceRows[Math.min(app.selected,app.sourceRows.length-1)].id+" · "+app.sourceRows[Math.min(app.selected,app.sourceRows.length-1)].name : "No sources registered"}
       RowLayout {Layout.fillWidth:true; Layout.fillHeight:true; spacing:16
        Card {Layout.preferredWidth:300; Layout.fillHeight:true
         ColumnLayout {anchors.fill:parent; anchors.margins:18; spacing:15
@@ -145,7 +147,7 @@ ApplicationWindow {
            Layout.fillWidth:true; height:62; radius:8; color:app.stage===index?"#303948":"transparent"
            Column {anchors.left:parent.left; anchors.verticalCenter:parent.verticalCenter; anchors.leftMargin:12; spacing:6
             Text {text:(index+1)+". "+modelData; color:app.textMain; font.pixelSize:14; font.bold:true}
-            Caption {text:index<4?"Completed (mock)":"Ready (mock)"}
+            Caption {text: "Stage settings"}
            }
            MouseArea {anchors.fill:parent; onClicked:app.stage=index}
           }
@@ -156,17 +158,17 @@ ApplicationWindow {
        Card {Layout.fillWidth:true; Layout.fillHeight:true
         ColumnLayout {anchors.fill:parent; anchors.margins:23; spacing:17
          Heading {text:["Ingest","Convert","Separate","Diarize","Quality Analysis"][app.stage]}
-         Caption {text:"Configuration preview · No real files are accessed"}
+         Caption {text:"Runs the existing Python pipeline. Select source in Dataset."}
          Repeater {model:app.stage===1?[["Sample rate (Hz)","44100"],["Output","Stereo PCM 16-bit"]]:app.stage===2?[["Model","model_bs_roformer_ep_317_sdr_12.9755.ckpt"],["Processing chunk (seconds)","180"]]:app.stage===3?[["Speaker count","Auto"],["Model","pyannote/speaker-diarization-3.1"]]:app.stage===4?[["Top K candidates","30"],["Minimum score","0"],["Review clips","Enabled"]]:[["Input","Selected source"],["Overwrite","Off"]]
           delegate: ColumnLayout {required property var modelData; Layout.fillWidth:true
            Caption {text:modelData[0]}
            UiField {Layout.fillWidth:true; text:modelData[1]}
           }
          }
-         CheckBox {text:"Overwrite selected stage (demo)"; palette.windowText:app.textMain}
+         CheckBox {text:"Overwrite selected stage output"; checked:app.overwriteStage; onToggled:app.overwriteStage=checked; palette.windowText:app.textMain}
          Item {Layout.fillHeight:true}
-         Caption {text:app.runningDemo?"Simulated processing...":"No backend connected. Actions are demonstrations."}
-         UiButton {text:app.runningDemo?"Running...":"Simulate stage run"; primary:true; enabled:!app.runningDemo; onClicked:app.runningDemo=true}
+         Caption {text:pipelineBridge.message; Layout.fillWidth:true; wrapMode:Text.WordWrap}
+         UiButton {text:pipelineBridge.busy?"Running...":"Run selected stage"; primary:true; enabled:!pipelineBridge.busy && app.sourceRows.length>0; onClicked: { const row=app.sourceRows[Math.min(app.selected,app.sourceRows.length-1)]; const command=["ingest","convert","separate","diarize","analyze-diarization"][app.stage]; if(command==="ingest"){ingestDialog.open()} else {pipelineBridge.runStage(command,row.speaker,row.id,app.overwriteStage)} }}
         }
        }
       }
@@ -175,7 +177,7 @@ ApplicationWindow {
     Item {
      ColumnLayout {anchors.fill:parent; anchors.margins:27; spacing:13
       Heading {text:"Audio Review Studio"}
-      Caption {text:app.sourceRows[app.selected].id+" / "+app.sourceRows[app.selected].name+" · Source-local diarization labels · Mock audio"}
+      Caption {text:app.sourceRows.length ? app.sourceRows[Math.min(app.selected,app.sourceRows.length-1)].id+" / "+app.sourceRows[Math.min(app.selected,app.sourceRows.length-1)].name+" · Timeline is sample-only" : "Select a source in Dataset · Timeline is sample-only"}
       Card {Layout.fillWidth:true; height:52
        RowLayout {anchors.fill:parent; anchors.margins:12
         UiButton {text:app.playing?"Pause":"Play"; onClicked:app.playing=!app.playing}
@@ -457,17 +459,17 @@ ApplicationWindow {
      anchors.fill: parent; anchors.leftMargin: 24; anchors.rightMargin: 24; spacing: 12
      ColumnLayout {
       spacing: 3
-      Caption {text: "UI demonstration only"; color: app.amber}
-      Caption {text: "No file import or backend execution"}
+      Caption {text: pipelineBridge.busy ? "Processing..." : "Runs local Python ingest"; color: app.amber}
+      Caption {text: pipelineBridge.message; Layout.maximumWidth: 300; elide: Text.ElideRight}
      }
      Item {Layout.fillWidth: true}
      UiButton {text: "Cancel"; onClicked: ingestDialog.close()}
      UiButton {
-      text: "Preview source"; primary: true
+      text: pipelineBridge.busy ? "Running..." : "Ingest source"; primary: true
       enabled: /^speaker_[0-9]{3,6}$/.test(ingestDialog.speakerId)
                && /^source_[0-9]{3,6}$/.test(ingestDialog.sourceId)
                && ingestDialog.audioLocation.length > 0
-      onClicked: ingestDialog.close()
+      onClicked: { pipelineBridge.ingest(ingestDialog.speakerId, ingestDialog.sourceId, app.urlMode ? "url" : "file", ingestDialog.audioLocation, ingestDialog.sourceName, ingestDialog.language, false); ingestDialog.close() }
      }
     }
    }
