@@ -5,8 +5,10 @@ from PySide6.QtCore import QUrl
 from PySide6.QtGui import QGuiApplication, QFontDatabase
 from PySide6.QtQml import QQmlApplicationEngine
 from bridge import PipelineBridge
+from src.core.runtime import configure_audio_runtime
 
 def main():
+    configure_audio_runtime()
     app = QGuiApplication(sys.argv)
     for font in (Path(__file__).resolve().parent / "assets/fonts").glob("*.ttf"):
         QFontDatabase.addApplicationFont(str(font))

@@ -20,7 +20,7 @@ environment and needs no HTTP server.
 
 If the project root has no `.env`, a small startup dialog requests a Hugging Face
 access token using a masked input. Save creates `.env` with `HF_TOKEN` and owner-only
-permissions, and makes the token available to the current process. Existing files
+permissions on POSIX systems, and makes the token available to the current process. Existing files
 are never overwritten; `.env` remains Git-ignored. Later dismisses the dialog and
 it returns on the next startup if the file is still missing. Token format is
 checked locally; token validity/model access is checked by the processing backend.

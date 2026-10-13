@@ -59,7 +59,8 @@ class DesktopBridgeTests(unittest.TestCase):
             self.assertEqual(os.environ["HF_TOKEN"], token)
         path = self.root / ".env"
         self.assertEqual(path.read_text(), "HF_TOKEN=" + token + "\n")
-        self.assertEqual(path.stat().st_mode & 0o777, 0o600)
+        if os.name == "posix":
+            self.assertEqual(path.stat().st_mode & 0o777, 0o600)
         self.assertFalse(self.bridge.needsTokenSetup)
         self.assertFalse(self.bridge.saveHuggingFaceToken("hf_OtherToken123"))
         self.assertEqual(path.read_text(), "HF_TOKEN=" + token + "\n")

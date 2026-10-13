@@ -1,7 +1,8 @@
 [project]
 name = "podsieve"
 version = "0.1.0"
-description = "Audio ingestion, source separation, and speaker diarization pipeline"
+description = "Local speaker diarization and vocal separation with a Qt desktop UI and Python CLI"
+keywords = ["speaker-diarization", "audio-processing", "vocal-separation", "pyannote", "qt", "cli"]
 readme = "README.md"
 requires-python = ">=3.10,<3.11"
 dependencies = [
@@ -21,7 +22,7 @@ dependencies = [
     "requests==2.33.1",
     "rich>=15.0.0,<16.0.0",
     "scipy==1.15.3",
-    "secretstorage>=3.5.0",
+    "secretstorage>=3.5.0; sys_platform == 'linux'",
     "silero-vad==6.2.1",
     "soundfile==0.13.1",
     "torch==2.8.0",
@@ -33,7 +34,7 @@ dependencies = [
 ]
 
 [tool.uv]
-environments = ["sys_platform == 'linux'"]
+environments = ["sys_platform == 'linux'", "sys_platform == 'win32'"]
 package = false
 
 [[tool.uv.index]]
@@ -45,5 +46,12 @@ explicit = true
 torch = { index = "pytorch-cu128" }
 torchaudio = { index = "pytorch-cu128" }
 torchvision = { index = "pytorch-cu128" }
-torchcodec = { index = "pytorch-cu128" }
+torchcodec = [
+    { index = "pytorch-cu128", marker = "sys_platform == 'linux'" },
+    { index = "pypi", marker = "sys_platform == 'win32'" },
+]
 
+[[tool.uv.index]]
+name = "pypi"
+url = "https://pypi.org/simple"
+explicit = true

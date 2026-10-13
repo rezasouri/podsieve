@@ -11,6 +11,7 @@ from dotenv import load_dotenv
 from src.core.config import config_value, load_config, resolve_from_root
 from src.core.errors import PipelineError, StageError
 from src.core.logging_config import configure_logging
+from src.core.runtime import configure_audio_runtime
 from src.core.storage_layout import StorageLayout, validate_source_id, validate_speaker_id
 from src.core.storage_metadata import (
     source_by_id,
@@ -342,6 +343,7 @@ def _prepare_raw_slot(
 
 
 def main(argv: list[str] | None = None) -> int:
+    configure_audio_runtime()
     parser = build_parser()
     args = parser.parse_args(argv)
     root = Path(__file__).resolve().parent
