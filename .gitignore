@@ -27,6 +27,7 @@ cookies.txt
 # Model checkpoints are large; track them separately (for example with Git LFS).
 checkpoints/*.ckpt
 checkpoints/huggingface/
+checkpoints/download_checks.json
 
 # Editor and OS files
 .idea/

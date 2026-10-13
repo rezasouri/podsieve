@@ -20,6 +20,7 @@ dependencies = [
     "requests==2.33.1",
     "rich>=15.0.0,<16.0.0",
     "scipy==1.15.3",
+    "secretstorage>=3.5.0",
     "silero-vad==6.2.1",
     "soundfile==0.13.1",
     "torch==2.8.0",
