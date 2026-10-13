@@ -1,9 +1,6 @@
 # PodSieve QML desktop UI
 
-Native Qt Quick implementation of the processing workspace and Processed Data manager in `REACT/src/App.tsx` and
-`REACT/src/index.css`. The React source is the visual reference; its simulated
-jobs, sample initial statuses and browser-only actions are replaced by local
-Python operations.
+Native Qt Quick implementation of the processing workspace and Processed Data manager. The desktop interface uses local Python operations for processing, source management, and file actions.
 
 ## Start
 
@@ -102,8 +99,8 @@ remain intact.
 - `ProcessedData.qml`: source table, inspector, multimedia preview and deletion dialog.
 - `data_registry.py`: real artifact inventory and source-isolated removal/rollback.
 - `components/`: reusable styled fields, buttons, toggles, dropdowns and cards.
-- `assets/`: SVG paths ported from the React icons, and JetBrains Mono with its
-  OFL license. Inter is used when installed, otherwise Qt selects a fallback.
+- `assets/`: SVG icons and JetBrains Mono with its OFL license. Inter is used
+  when installed; otherwise Qt selects a fallback.
 - `bridge.py`: QObject state, metadata reads, validation and worker orchestration.
 - `storage_adapter.py`: UI-only alias allocation, preference persistence and
   publication to a user-selected directory. No CLI or shared pipeline changes.
