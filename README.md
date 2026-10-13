@@ -66,10 +66,12 @@ The main configuration file is [`configs/default.yaml`](configs/default.yaml).
 It controls the data root, audio sample rates, URL download options, separation
 model, and diarization model and output settings.
 
-The default download configuration currently points to a machine-specific
-cookies file. Set `download.cookies_file` to a valid Netscape-format cookies
-file on your machine, or set it to `null` if cookies are not needed. You can
-also configure `cookies_from_browser` where supported by `yt-dlp`.
+The default YouTube download configuration reads cookies from Chrome on the
+machine running the pipeline. Change `download.cookies_from_browser` to use
+another supported browser, or set `download.cookies_file` to a valid
+Netscape-format cookies file; the file takes precedence over the browser.
+Set both options to `null` to download without cookies. Castbox downloads do
+not use these cookie settings.
 
 The separation checkpoint is expected at:
 
@@ -151,8 +153,10 @@ uv run python run.py diarize \
 
 The diarization stage runs on the separated vocals. It writes RTTM/JSON
 annotations, diagnostics, and a final set of segments that do not intersect
-the generated quality or overlap review windows. Final WAVs are grouped by
-speaker and listed in CSV/JSON manifests.
+ranked quality review windows or detected output overlaps. Missed-overlap
+candidates remain available for listening review without excluding a complete
+turn on their own. Final WAVs are grouped by speaker and listed in CSV/JSON
+manifests.
 
 Each stage accepts `--overwrite` to replace its existing output. Use it only
 when you intend to regenerate that stage's result.
