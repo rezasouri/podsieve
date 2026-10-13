@@ -5,6 +5,7 @@ No HTTP server or fake processing; real runs happen on a QThread.
 from __future__ import annotations
 
 import logging
+import os
 import tempfile
 import re
 from datetime import datetime
@@ -45,6 +46,14 @@ class PipelineWorker(QThread):
         logger.setLevel(logging.INFO)
         logger.addHandler(handler)
         try:
+            if self.command == "delete-source":
+                from src.core.config import load_config
+                from run import storage_layout_from_config
+                from ui.data_registry import remove_source
+                layout = storage_layout_from_config(ROOT, load_config(ROOT / "configs/default.yaml"))
+                trash = remove_source(layout, self.params["internal_speaker_id"], self.params["speaker_id"], self.params["source_id"])
+                self.completed.emit(str(trash))
+                return
             from dotenv import load_dotenv
             from src.core.config import load_config
             from run import (
@@ -141,6 +150,7 @@ class PipelineWorker(QThread):
 class PipelineBridge(QObject):
     stateChanged = Signal()
     sourcesChanged = Signal()
+    setupChanged = Signal()
     busyChanged = Signal()
     messageChanged = Signal()
 
@@ -149,7 +159,8 @@ class PipelineBridge(QObject):
         self._states = ["not-started"] * 4
         self._logs = []
         self._queue = []
-        self._selected = ("speaker_001", "source_001")
+        self._failures = {}
+        self._selected = ("", "")
         self._active = ""
         self._output = ""
         self._output_parent = ""
@@ -158,9 +169,42 @@ class PipelineBridge(QObject):
         self._busy = False
         self._message = "Ready"
         self._worker = None
+        self._setup_error = ""
         self.refreshSources()
-        self.selectSource(*self._selected)
         self._append_log("PodSieve initialized.")
+
+    @Property(bool, notify=setupChanged)
+    def needsTokenSetup(self):
+        return not (ROOT / ".env").exists()
+
+    @Property(str, notify=setupChanged)
+    def tokenSetupError(self):
+        return self._setup_error
+
+    @Slot(str, result=bool)
+    def saveHuggingFaceToken(self, value):
+        token = value.strip()
+        if not re.fullmatch(r"hf_[A-Za-z0-9]+", token):
+            self._setup_error = "Enter a Hugging Face token starting with hf_."
+            self.setupChanged.emit()
+            return False
+        try:
+            # Exclusive creation preserves an existing .env, including a file
+            # created by another process while the setup dialog was open.
+            with open(ROOT / ".env", "x", encoding="utf-8", opener=lambda path, flags: os.open(path, flags, 0o600)) as handle:
+                handle.write("HF_TOKEN=" + token + "\n")
+        except FileExistsError:
+            self._setup_error = ".env already exists. Its contents were kept."
+            self.setupChanged.emit()
+            return False
+        except OSError:
+            self._setup_error = "Could not create .env. Check project folder permissions."
+            self.setupChanged.emit()
+            return False
+        os.environ["HF_TOKEN"] = token
+        self._setup_error = ""
+        self.setupChanged.emit()
+        return True
 
     @Property("QVariantList", notify=stateChanged)
     def stageStates(self):
@@ -239,6 +283,22 @@ class PipelineBridge(QObject):
     @Slot()
     def clearLogs(self):
         self._logs = []
+        self.stateChanged.emit()
+
+    @Slot()
+    def clearProcessing(self):
+        """Reset the desktop form/session without changing stored source data."""
+        if self._busy:
+            return
+        self._selected = ("", "")
+        self._states = ["not-started"] * 4
+        self._logs = []
+        self._queue = []
+        self._params = {}
+        self._active = ""
+        self._output = ""
+        self._output_parent = ""
+        self._set_message("Ready")
         self.stateChanged.emit()
 
     @Slot(str, str)
@@ -375,35 +435,63 @@ class PipelineBridge(QObject):
 
     @Slot()
     def refreshSources(self):
-        from src.core.config import load_config, resolve_from_root
-        from src.core.storage_layout import StorageLayout
-        config = load_config(ROOT / "configs/default.yaml")
-        storage = config.get("storage", {})
-        layout = StorageLayout(data_root=resolve_from_root(ROOT, storage.get("data_root", "data")), schema_version=str(storage.get("schema_version", "1.0")))
-        aliases = {key: name for name, key in read_preferences(layout)["aliases"].items()}
-        rows = []
-        for path in sorted(layout.speakers_root.glob("speaker_*/metadata.json")):
-            try:
-                meta = json.loads(path.read_text(encoding="utf-8"))
-                speaker = meta.get("speaker_id", path.parent.name)
-                for src in meta.get("sources", []):
-                    complete = [n for n in ("raw", "conversion", "separation", "diarization")
-                                if src.get(n, {}).get("status") == "completed"]
-                    stage = {"raw": "Ingest", "conversion": "Convert", "separation": "Separate",
-                             "diarization": "Diarize"}
-                    last = stage[complete[-1]] if complete else "Pending"
-                    rows.append({
-                        "id": src["source_id"], "speaker": aliases.get(speaker, speaker),
-                        "name": src.get("original_filename") or src["source_id"],
-                        "input": src.get("source_type", "local"),
-                        "duration": "—", "stage": last,
-                        "status": "Completed" if "diarization" in complete else "Pending",
-                        "reviewStatus": src.get("manual_review", {}).get("status", "pending"),
-                    })
-            except (OSError, ValueError, KeyError, TypeError) as exc:
-                self._set_message(f"Metadata warning: {path.name}: {exc}")
+        from ui.data_registry import scan_sources
+        try:
+            rows = scan_sources(self._layout())
+        except (OSError, ValueError, KeyError, TypeError) as exc:
+            self._set_message("Metadata warning: " + str(exc))
+            self._append_log(self._message, "error")
+            return
+        for row in rows:
+            failure = self._failures.get(row["key"])
+            if failure:
+                row["status"] = "failed"
+                row["failure"] = failure[1]
+                if failure[0] in ("ingest", "convert", "separate", "diarize"):
+                    row["stages"][["ingest", "convert", "separate", "diarize"].index(failure[0])] = "failed"
+            if self._busy and self._active != "delete-source" and row["speaker"] == self._params.get("speaker_id") and row["id"] == self._params.get("source_id"):
+                row["status"] = "processing"
+                if self._active in ("ingest", "convert", "separate", "diarize"):
+                    row["stages"][["ingest", "convert", "separate", "diarize"].index(self._active)] = "processing"
         self._sources = rows
         self.sourcesChanged.emit()
+
+    @Slot(str, str, str)
+    def deleteSource(self, name, source, confirmation):
+        if self._busy or confirmation != source:
+            return
+        key = internal_speaker(self._layout(), name)
+        if not key:
+            self._set_message("Select a registered source")
+            return
+        self._params = dict(speaker_id=name, source_id=source, internal_speaker_id=key)
+        self._start("delete-source", self._params)
+
+    def _registered_path(self, value):
+        from ui.data_registry import scan_sources
+        rows = scan_sources(self._layout())
+        allowed = {row["outputPath"] for row in rows}
+        allowed.update(f["path"] for row in rows for group in row["fileGroups"] for f in group["files"])
+        path = Path(value)
+        if str(path) not in allowed or not path.exists():
+            raise ValueError("Artifact is unavailable or is not registered")
+        return path
+
+    @Slot(str)
+    def copyArtifactPath(self, value):
+        try:
+            QGuiApplication.clipboard().setText(str(self._registered_path(value)))
+        except (OSError, ValueError) as exc:
+            self._set_message(str(exc))
+
+    @Slot(str)
+    def openArtifactFolder(self, value):
+        try:
+            path = self._registered_path(value)
+            if not QDesktopServices.openUrl(QUrl.fromLocalFile(str(path if path.is_dir() else path.parent))):
+                raise OSError("Could not open artifact folder")
+        except (OSError, ValueError) as exc:
+            self._set_message(str(exc))
 
     @Slot(str, str, str, str, str, str, bool)
     def ingest(self, speaker, source, mode, location, name, language, overwrite):
@@ -437,9 +525,12 @@ class PipelineBridge(QObject):
         worker.finished.connect(self._worker_finished)
         worker.finished.connect(worker.deleteLater)
         worker.start()
+        self.refreshSources()
 
     @Slot(str)
     def _done(self, output):
+        if self._params.get("internal_speaker_id"):
+            self._failures.pop(self._params["internal_speaker_id"] + "/" + self._params["source_id"], None)
         if self._active in ("ingest", "convert", "separate", "diarize"):
             self._states[["ingest", "convert", "separate", "diarize"].index(self._active)] = "completed"
         self._set_message(f"Completed: {output}")
@@ -448,6 +539,8 @@ class PipelineBridge(QObject):
 
     @Slot(str)
     def _failed(self, error):
+        if self._params.get("internal_speaker_id") and self._active != "delete-source":
+            self._failures[self._params["internal_speaker_id"] + "/" + self._params["source_id"]] = (self._active, error)
         if self._active in ("ingest", "convert", "separate", "diarize"):
             self._states[["ingest", "convert", "separate", "diarize"].index(self._active)] = "failed"
         self._queue = []
@@ -456,6 +549,10 @@ class PipelineBridge(QObject):
 
     @Slot()
     def _worker_finished(self):
+        was_deletion = self._active == "delete-source"
         self._worker = None
         self._busy = False
         self._next_stage()
+        if was_deletion:
+            self.selectSource(*self._selected)
+        self.refreshSources()

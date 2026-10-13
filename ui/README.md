@@ -1,6 +1,6 @@
 # PodSieve QML desktop UI
 
-Native Qt Quick implementation of the workspace in `REACT/src/App.tsx` and
+Native Qt Quick implementation of the processing workspace and Processed Data manager in `REACT/src/App.tsx` and
 `REACT/src/index.css`. The React source is the visual reference; its simulated
 jobs, sample initial statuses and browser-only actions are replaced by local
 Python operations.
@@ -16,6 +16,23 @@ uv run --no-sync python ui/main.py
 PySide6 is declared in `pyproject.toml`. The interface uses the existing project
 environment and needs no HTTP server.
 
+## First-run token setup
+
+If the project root has no `.env`, a small startup dialog requests a Hugging Face
+access token using a masked input. Save creates `.env` with `HF_TOKEN` and owner-only
+permissions, and makes the token available to the current process. Existing files
+are never overwritten; `.env` remains Git-ignored. Later dismisses the dialog and
+it returns on the next startup if the file is still missing. Token format is
+checked locally; token validity/model access is checked by the processing backend.
+
+## Responsive sizing
+
+The window has a minimum size of 1180 × 720. Above the reference viewport,
+`uiScale` grows with window dimensions (capped at 1.75); the logical canvas,
+header, footer and dialogs scale together, including fonts and icons. Compact
+layout decisions use logical dimensions. Small data labels have a larger baseline
+font for readability; narrow tables retain horizontal scrolling.
+
 ## Connected behavior
 
 - Two-column input/settings/control and status/log/output workspace, matching
@@ -26,6 +43,8 @@ environment and needs no HTTP server.
 - UI speaker IDs accept Unicode, spaces and arbitrary folder names (except path
   separators, empty names, dot paths and control characters). Source IDs still
   require `source_` plus 3–6 digits. Actual source statuses come from metadata.
+- Processing opens with empty speaker/source IDs and unstarted stages, even
+  when saved sources exist. Entering an existing ID pair loads its saved status.
 - Individual Ingest, Convert, Separate and Diarize operations, plus sequential
   full-pipeline execution. A failure stops the remaining stages.
 - Overwrite defaults to off. Completed stages require explicit overwrite.
@@ -38,13 +57,50 @@ environment and needs no HTTP server.
   the next run. These overrides do not modify the YAML file.
 - Timestamped logging from Python logging, clear logs, native clipboard copy
   and native output-folder opening. Folder availability also checks disk.
+- Clear in Pipeline Controls empties inputs, IDs, output destination, logs and
+  stage status, and restores settings defaults. Stored sources/files remain intact.
+  Clear is disabled while a worker runs.
 - One worker at a time. Closing is deferred while a worker is running, to avoid
   destroying an active QThread. Cancellation is not implemented.
+
+## Processed Data manager
+
+The updated reference opens on Processed Data and adds header navigation back to
+Process Audio. The processing form and its custom output/speaker-name support
+remain intact.
+
+- Counts, storage sizes, artifacts and stage timestamps are read from actual
+  metadata and files; no sample source records or simulated failures are used.
+- Search, speaker/status filters, sorting, six-row pagination and checkboxes.
+  Selection uses internal speaker + source IDs, since source IDs repeat across
+  different speakers. The inspector follows filtered selection and handles empty
+  results without leaving stale details visible.
+- Reference-sized table columns, proportional inspector, colored input/statistic
+  icons, underline tabs, connected stage timeline and three inline footer actions.
+  At narrow widths the table scrolls horizontally and the inspector stays usable.
+- Inspector Overview, Processing Stages and Files tabs, actual artifact path
+  copying/opening.
+- Native Qt Multimedia preview selects vocals, working WAV or raw audio in that
+  order, and supports play/pause, duration, seeking and decoder error reporting.
+  It opens a file only when preview is requested. No synthetic waveform is shown.
+- Deletion requires typing the exact source ID and is disabled while any job is
+  running. Only that source's raw/working/generated files and owned external
+  clips are moved to `.podsieve-trash/<id>` under the configured data root.
+  Metadata and shared registries are updated; other sources and the speaker
+  identity remain. On failure, moved files and metadata are restored.
+- Trash includes a `restore.json` record with original paths and metadata.
+  Restoring trash is currently manual; there is no restore button or automatic
+  cleanup. The dialog clearly states that files move to local trash.
+- Processing/failed states reflect this desktop session; existing metadata only
+  persists pending/completed. The interface cannot detect a separate CLI process
+  running concurrently against the same dataset.
 
 ## Structure
 
 - `main.py`: application, bundled font loading and QML engine.
-- `Main.qml`: workspace and advanced configuration dialog.
+- `Main.qml`: navigation, processing workspace and advanced configuration dialog.
+- `ProcessedData.qml`: source table, inspector, multimedia preview and deletion dialog.
+- `data_registry.py`: real artifact inventory and source-isolated removal/rollback.
 - `components/`: reusable styled fields, buttons, toggles, dropdowns and cards.
 - `assets/`: SVG paths ported from the React icons, and JetBrains Mono with its
   OFL license. Inter is used when installed, otherwise Qt selects a fallback.
@@ -56,8 +112,8 @@ Stage activity is indeterminate. The footer indicates completed stages out of
 four, not an estimated percentage of audio processing. Detailed stdout/stderr
 and model progress bars are not captured by the Python logging bridge.
 
-This workspace follows the React reference; waveform playback, timeline editing
-and a manual quality-review interface are outside this page's scope.
+Timeline editing, waveform rendering and a manual quality-review interface remain
+outside these pages' scope.
 
 ## Custom output and CLI isolation
 
@@ -105,7 +161,8 @@ The UI tests use temporary storage. They exercise real local ingest and
 FFmpeg conversion, completed-stage overwrite protection, full-pipeline chaining,
 failure stopping, diarization option forwarding, speaker alias persistence,
 external final publication, multi-source overwrite isolation, foreign-directory
-protection, failure preservation and completed progress bars. Separation and diarization
+protection, failure preservation, completed progress bars, duplicate source-ID
+selection, data-page navigation/filters and source deletion/registry rollback. Separation and diarization
 models are mocked in these tests; GPU inference and provider downloads require
 separate operational validation. A smoke run ending with timeout status 124 is
 expected because the GUI event loop remains open.

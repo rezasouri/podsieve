@@ -10,14 +10,18 @@ ApplicationWindow {
     width: 1440
     height: 900
     minimumWidth: 1180
-    minimumHeight: 620
+    minimumHeight: 720
     title: "PodSieve — Local Audio Processing Workspace"
     color: "#0d1118"
-    property bool compact: height <= 810
+    property string pageView: "data"
+    // Layouts use logical pixels; the canvas scales text, icons and spacing together.
+    property real uiScale: Math.max(1, Math.min(1.75, width / 1520, height / 760))
+    property bool compact: height / uiScale <= 810
     property bool urlMode: false
     property bool optionalOpen: true
     property bool advancedOpen: false
     property bool copied: false
+    property bool clearing: false
     property var names: ["Ingest", "Convert", "Separate", "Diarize"]
     property var descriptions: ["Import or download source audio", "Prepare the working WAV file", "Extract the vocal audio track", "Create speaker-labeled segments"]
     property var states: pipelineBridge.stageStates
@@ -28,7 +32,46 @@ ApplicationWindow {
     property bool canRun: idsValid && !pipelineBridge.busy
     property bool canFull: canRun && sourceValid && (completedCount === 0 || overwrite.checked)
     function selectSource() {
-        pipelineBridge.selectSource(speaker.text, sourceId.text);
+        if (!clearing)
+            pipelineBridge.selectSource(speaker.text, sourceId.text);
+    }
+    function clearProcessing() {
+        if (pipelineBridge.busy)
+            return;
+        clearing = true;
+        file.text = "";
+        url.text = "";
+        speaker.text = "";
+        sourceId.text = "";
+        speakerName.text = "";
+        gender.text = "";
+        count.text = "";
+        language.currentIndex = 0;
+        urlMode = false;
+        optionalOpen = true;
+        advancedOpen = false;
+        overwrite.checked = false;
+        evidence.checked = true;
+        quality.checked = true;
+        sampleRate.text = "44100";
+        chunk.text = "180";
+        separationModel.text = "model_bs_roformer_ep_317_sdr_12.9755.ckpt";
+        diarizationModel.text = "pyannote/speaker-diarization-3.1";
+        tokenEnv.text = "HF_TOKEN";
+        stream.text = "251/140/bestaudio";
+        audioFormat.text = "opus";
+        cookieMode.currentIndex = 1;
+        browser.text = "chrome";
+        cookies.text = "";
+        modelDialog.close();
+        picker.close();
+        outputPicker.close();
+        copyTimer.stop();
+        copied = false;
+        leftScroll.contentItem.contentY = 0;
+        logList.positionViewAtBeginning();
+        pipelineBridge.clearProcessing();
+        clearing = false;
     }
     function run(stage) {
         pipelineBridge.execute(stage, {
@@ -108,7 +151,7 @@ ApplicationWindow {
     }
 
     header: Rectangle {
-        height: app.compact ? 58 : 66
+        height: (app.compact ? 58 : 66) * app.uiScale
         color: "#0d1118"
         Rectangle {
             anchors.bottom: parent.bottom
@@ -116,358 +159,603 @@ ApplicationWindow {
             height: 1
             color: "#2a3443"
         }
-        RowLayout {
-            anchors.fill: parent
-            anchors.leftMargin: 28
-            anchors.rightMargin: 28
-            spacing: 12
+        Item {
+            width: parent.width / app.uiScale
+            height: parent.height / app.uiScale
+            scale: app.uiScale
+            transformOrigin: Item.TopLeft
+            RowLayout {
+                anchors.fill: parent
+                anchors.leftMargin: 28
+                anchors.rightMargin: 28
+                spacing: 12
+                Rectangle {
+                    width: 38
+                    height: 38
+                    radius: 10
+                    color: "#193958"
+                    border.color: "#2b6fae"
+                    UiIcon {
+                        anchors.centerIn: parent
+                        name: "wave"
+                        tint: "#7bb7f6"
+                        width: 27
+                        height: 27
+                    }
+                }
+                ColumnLayout {
+                    spacing: 2
+                    UiText {
+                        text: "PodSieve"
+                        font.pixelSize: 17
+                        font.bold: true
+                    }
+                    UiText {
+                        text: "Local Audio Processing Workspace"
+                        font.weight: Font.Normal
+                        visible: app.width > 1280
+                        color: "#8d9aaf"
+                        font.pixelSize: 11
+                    }
+                }
+                Item {
+                    Layout.fillWidth: true
+                }
+                Rectangle {
+                    width: 7
+                    height: 7
+                    radius: 4
+                    color: "#35b8a9"
+                }
+                UiText {
+                    text: "Local processing"
+                    color: "#b2bdcd"
+                }
+            }
             Rectangle {
-                width: 38
-                height: 38
-                radius: 10
-                color: "#193958"
-                border.color: "#2b6fae"
-                Image {
+                objectName: "headerNavigation"
+                anchors.centerIn: parent
+                implicitWidth: navigation.implicitWidth + 6
+                implicitHeight: 36
+                color: "#111720"
+                border.color: "#2a3443"
+                radius: 9
+                RowLayout {
+                    id: navigation
                     anchors.centerIn: parent
-                    source: "assets/wave.svg"
-                    width: 27
-                    height: 27
+                    spacing: 3
+                    UiButton {
+                        id: processNav
+                        textSize: 10.5
+                        text: "Process Audio"
+                        symbol: "wave"
+                        implicitHeight: 30
+                        selected: app.pageView === "process"
+                        background: Rectangle {
+                            radius: 6
+                            color: processNav.selected ? "#183555" : "transparent"
+                            border.color: processNav.selected ? "#274566" : "transparent"
+                        }
+                        onClicked: app.pageView = "process"
+                    }
+                    UiButton {
+                        id: dataNav
+                        textSize: 10.5
+                        text: "Processed Data"
+                        symbol: "database"
+                        implicitHeight: 30
+                        selected: app.pageView === "data"
+                        background: Rectangle {
+                            radius: 6
+                            color: dataNav.selected ? "#183555" : "transparent"
+                            border.color: dataNav.selected ? "#274566" : "transparent"
+                        }
+                        onClicked: {
+                            pipelineBridge.refreshSources();
+                            app.pageView = "data";
+                        }
+                    }
                 }
-            }
-            ColumnLayout {
-                spacing: 2
-                UiText {
-                    text: "PodSieve"
-                    font.pixelSize: 17
-                    font.bold: true
-                }
-                UiText {
-                    text: "Local Audio Processing Workspace"
-                    color: "#8d9aaf"
-                    font.pixelSize: 11
-                }
-            }
-            Item {
-                Layout.fillWidth: true
-            }
-            Rectangle {
-                width: 7
-                height: 7
-                radius: 4
-                color: "#35b8a9"
-            }
-            UiText {
-                text: "Local processing"
-                color: "#b2bdcd"
             }
         }
     }
-    RowLayout {
-        anchors.fill: parent
-        anchors.leftMargin: width < 1280 ? 20 : 28
-        anchors.rightMargin: anchors.leftMargin
-        anchors.topMargin: app.compact ? 10 : 16
-        anchors.bottomMargin: anchors.topMargin
-        spacing: app.compact ? 12 : 16
-        ScrollView {
-            id: leftScroll
-            Layout.fillHeight: true
-            Layout.fillWidth: true
-            Layout.preferredWidth: 540
-            clip: true
-            ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+    Item {
+        id: responsiveCanvas
+        objectName: "responsiveCanvas"
+        width: parent.width / app.uiScale
+        height: parent.height / app.uiScale
+        scale: app.uiScale
+        transformOrigin: Item.TopLeft
+        Loader {
+            anchors.fill: parent
+            active: app.pageView === "data"
+            sourceComponent: Component {
+                ProcessedData {
+                    displayScale: app.uiScale
+                    onAddSource: app.pageView = "process"
+                }
+            }
+        }
+        RowLayout {
+            visible: app.pageView === "process"
+            anchors.fill: parent
+            anchors.leftMargin: width < 1280 ? 20 : 28
+            anchors.rightMargin: anchors.leftMargin
+            anchors.topMargin: app.compact ? 10 : 16
+            anchors.bottomMargin: anchors.topMargin
+            spacing: app.compact ? 12 : 16
+            ScrollView {
+                id: leftScroll
+                Layout.fillHeight: true
+                Layout.fillWidth: true
+                Layout.preferredWidth: 540
+                clip: true
+                ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+                ColumnLayout {
+                    width: leftScroll.availableWidth
+                    height: Math.max(implicitHeight, leftScroll.availableHeight)
+                    spacing: app.compact ? 9 : 12
+                    UiCard {
+                        Layout.fillWidth: true
+                        implicitHeight: inputContent.implicitHeight + 30
+                        ColumnLayout {
+                            id: inputContent
+                            anchors.fill: parent
+                            anchors.margins: 15
+                            spacing: 10
+                            Heading {
+                                title: "Input Source"
+                                description: "Select a local audio file or provide a supported URL."
+                                Layout.fillWidth: true
+                            }
+                            Rectangle {
+                                implicitWidth: switchRow.implicitWidth + 6
+                                implicitHeight: 36
+                                color: "#121821"
+                                radius: 8
+                                border.color: "#2a3443"
+                                RowLayout {
+                                    id: switchRow
+                                    anchors.centerIn: parent
+                                    spacing: 2
+                                    UiButton {
+                                        text: "Local file"
+                                        symbol: "file"
+                                        selected: !app.urlMode
+                                        implicitHeight: 28
+                                        enabled: !pipelineBridge.busy
+                                        onClicked: app.urlMode = false
+                                    }
+                                    UiButton {
+                                        text: "URL"
+                                        symbol: "link"
+                                        selected: app.urlMode
+                                        implicitHeight: 28
+                                        enabled: !pipelineBridge.busy
+                                        onClicked: app.urlMode = true
+                                    }
+                                }
+                            }
+                            RowLayout {
+                                Layout.fillWidth: true
+                                spacing: 8
+                                UiField {
+                                    id: file
+                                    objectName: "file"
+                                    visible: !app.urlMode
+                                    Layout.fillWidth: true
+                                    mono: true
+                                    placeholderText: "Select an audio file"
+                                    enabled: !pipelineBridge.busy
+                                    Accessible.name: "Audio file path"
+                                }
+                                UiField {
+                                    id: url
+                                    objectName: "url"
+                                    visible: app.urlMode
+                                    Layout.fillWidth: true
+                                    mono: true
+                                    placeholderText: "https://www.youtube.com/watch?v=VIDEO_ID"
+                                    enabled: !pipelineBridge.busy
+                                    Accessible.name: "Audio URL"
+                                }
+                                UiButton {
+                                    visible: !app.urlMode
+                                    text: "Browse"
+                                    symbol: "folder"
+                                    selected: true
+                                    enabled: !pipelineBridge.busy
+                                    onClicked: picker.open()
+                                }
+                            }
+                            Label {
+                                text: app.urlMode ? "YouTube and Castbox links are supported" : "MP3, WAV, M4A, FLAC, OGG, or other FFmpeg-readable audio"
+                                color: app.urlMode && url.text.length && !app.sourceValid ? "#e06c75" : "#718096"
+                            }
+                            Rule {}
+                            Label {
+                                text: "Diarized output directory (optional)"
+                            }
+                            RowLayout {
+                                Layout.fillWidth: true
+                                spacing: 8
+                                UiField {
+                                    objectName: "outputParent"
+                                    Layout.fillWidth: true
+                                    mono: true
+                                    text: pipelineBridge.outputParent
+                                    placeholderText: "Default project output — or select a folder"
+                                    enabled: !pipelineBridge.busy
+                                    Accessible.name: "Diarized output directory"
+                                    onTextEdited: pipelineBridge.setOutputParent(text)
+                                }
+                                UiButton {
+                                    text: "Browse"
+                                    symbol: "folder"
+                                    selected: true
+                                    enabled: !pipelineBridge.busy
+                                    onClicked: outputPicker.open()
+                                }
+                                UiButton {
+                                    text: "Default"
+                                    enabled: !pipelineBridge.busy && pipelineBridge.outputParent.length > 0
+                                    onClicked: pipelineBridge.setOutputParent("")
+                                }
+                            }
+                            Label {
+                                Layout.fillWidth: true
+                                wrapMode: Text.WrapAnywhere
+                                text: pipelineBridge.outputParent.length ? "Final audio folder: " + (pipelineBridge.outputPath || "Select an existing directory and a valid speaker name") : "Leave empty to use the default project output."
+                                color: "#718096"
+                            }
+                        }
+                    }
+                    UiCard {
+                        Layout.fillWidth: true
+                        implicitHeight: settingsContent.implicitHeight + 24
+                        ColumnLayout {
+                            id: settingsContent
+                            anchors.fill: parent
+                            anchors.margins: 12
+                            spacing: 10
+                            RowLayout {
+                                Layout.fillWidth: true
+                                Image {
+                                    source: "assets/settings.svg"
+                                    width: 16
+                                    height: 16
+                                }
+                                UiText {
+                                    text: "Optional Settings"
+                                    font.pixelSize: 12
+                                    font.weight: Font.DemiBold
+                                    Layout.fillWidth: true
+                                }
+                                UiButton {
+                                    text: app.optionalOpen ? "Hide  ⌃" : "Show  ⌄"
+                                    implicitHeight: 24
+                                    onClicked: app.optionalOpen = !app.optionalOpen
+                                }
+                            }
+                            ColumnLayout {
+                                visible: app.optionalOpen
+                                Layout.fillWidth: true
+                                spacing: 9
+                                Rule {}
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 9
+                                    enabled: !pipelineBridge.busy
+                                    ColumnLayout {
+                                        Layout.fillWidth: true
+                                        spacing: 5
+                                        Label {
+                                            text: "Speaker ID"
+                                        }
+                                        UiField {
+                                            id: speaker
+                                            objectName: "speaker"
+                                            placeholderText: "e.g. hamid"
+                                            mono: true
+                                            Layout.fillWidth: true
+                                            onTextChanged: app.selectSource()
+                                            Accessible.name: "Speaker ID"
+                                        }
+                                        Label {
+                                            text: "Any folder name, e.g. hamid"
+                                            font.pixelSize: 9
+                                            color: pipelineBridge.validSpeakerName(speaker.text) ? "#6f7e93" : "#e06c75"
+                                        }
+                                    }
+                                    ColumnLayout {
+                                        Layout.fillWidth: true
+                                        spacing: 5
+                                        Label {
+                                            text: "Source ID"
+                                        }
+                                        UiField {
+                                            id: sourceId
+                                            objectName: "sourceId"
+                                            placeholderText: "source_001"
+                                            mono: true
+                                            Layout.fillWidth: true
+                                            onTextChanged: app.selectSource()
+                                            Accessible.name: "Source ID"
+                                        }
+                                        Label {
+                                            text: "source_ + 3–6 digits"
+                                            font.pixelSize: 9
+                                            color: /^source_[0-9]{3,6}$/.test(sourceId.text) ? "#6f7e93" : "#e06c75"
+                                        }
+                                    }
+                                    ColumnLayout {
+                                        Layout.preferredWidth: 130
+                                        Layout.maximumWidth: 130
+                                        spacing: 5
+                                        Label {
+                                            text: "Language"
+                                        }
+                                        UiCombo {
+                                            id: language
+                                            model: ["Persian (fa)", "English (en)", "Arabic (ar)"]
+                                            Layout.fillWidth: true
+                                            implicitHeight: 34
+                                        }
+                                        Label {
+                                            text: " "
+                                            font.pixelSize: 9
+                                        }
+                                    }
+                                }
+                                Rule {}
+                                UiButton {
+                                    text: app.advancedOpen ? "Advanced settings   ⌃" : "Advanced settings   ⌄"
+                                    Layout.fillWidth: true
+                                    implicitHeight: 26
+                                    onClicked: app.advancedOpen = !app.advancedOpen
+                                }
+                                Rectangle {
+                                    visible: app.advancedOpen
+                                    Layout.fillWidth: true
+                                    implicitHeight: advancedContent.implicitHeight + 20
+                                    color: "#121821"
+                                    radius: 8
+                                    border.color: "#2a3443"
+                                    ColumnLayout {
+                                        id: advancedContent
+                                        anchors.fill: parent
+                                        anchors.margins: 10
+                                        spacing: 8
+                                        enabled: !pipelineBridge.busy
+                                        RowLayout {
+                                            Layout.fillWidth: true
+                                            spacing: 7
+                                            UiField {
+                                                id: speakerName
+                                                Layout.fillWidth: true
+                                                placeholderText: "Speaker name"
+                                                Accessible.name: "Speaker name"
+                                            }
+                                            UiField {
+                                                id: gender
+                                                Layout.fillWidth: true
+                                                placeholderText: "Gender — Not set"
+                                                Accessible.name: "Gender"
+                                            }
+                                            UiField {
+                                                id: count
+                                                objectName: "count"
+                                                Layout.fillWidth: true
+                                                placeholderText: "Speakers — Auto"
+                                                validator: IntValidator {
+                                                    bottom: 1
+                                                    top: 999
+                                                }
+                                                Accessible.name: "Expected number of speakers"
+                                            }
+                                        }
+                                        UiToggle {
+                                            id: overwrite
+                                            objectName: "overwrite"
+                                            text: "Overwrite existing output"
+                                            Layout.fillWidth: true
+                                        }
+                                        UiToggle {
+                                            id: evidence
+                                            objectName: "evidence"
+                                            text: "Save diarization evidence"
+                                            checked: true
+                                            Layout.fillWidth: true
+                                            onToggled: if (!checked)
+                                                quality.checked = false
+                                        }
+                                        UiToggle {
+                                            id: quality
+                                            objectName: "quality"
+                                            text: "Automatic quality analysis"
+                                            checked: true
+                                            Layout.fillWidth: true
+                                            onToggled: if (checked)
+                                                evidence.checked = true
+                                        }
+                                        UiButton {
+                                            text: "Advanced model configuration"
+                                            symbol: "settings"
+                                            Layout.fillWidth: true
+                                            onClicked: modelDialog.open()
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    UiCard {
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        Layout.minimumHeight: 160
+                        ColumnLayout {
+                            anchors.fill: parent
+                            anchors.margins: 15
+                            spacing: 9
+                            RowLayout {
+                                Layout.fillWidth: true
+                                Heading {
+                                    title: "Pipeline Controls"
+                                    description: "Run an individual stage or execute the complete pipeline."
+                                    Layout.fillWidth: true
+                                }
+                                UiButton {
+                                    objectName: "clearProcessingButton"
+                                    text: "Clear"
+                                    symbol: "refresh"
+                                    implicitHeight: 30
+                                    enabled: !pipelineBridge.busy
+                                    hint: "Reset the processing page; saved files are kept"
+                                    onClicked: app.clearProcessing()
+                                }
+                            }
+                            RowLayout {
+                                Layout.fillWidth: true
+                                spacing: 7
+                                Repeater {
+                                    model: app.names
+                                    UiButton {
+                                        required property string modelData
+                                        required property int index
+                                        Layout.fillWidth: true
+                                        text: (app.states[index] === "completed" ? "✓  " : (index + 1) + "  ") + modelData
+                                        enabled: app.canRun && (index !== 0 || app.sourceValid) && (index === 0 || app.states[index - 1] === "completed") && (app.states[index] !== "completed" || overwrite.checked)
+                                        hint: "Run " + modelData + "; completed stages require overwrite"
+                                        onClicked: app.run(modelData.toLowerCase())
+                                    }
+                                }
+                            }
+                            UiButton {
+                                Layout.fillWidth: true
+                                primary: true
+                                symbol: pipelineBridge.busy ? "loader" : "play"
+                                text: pipelineBridge.busy ? pipelineBridge.activeStage + " in progress" : "Run Full Pipeline"
+                                enabled: app.canFull
+                                onClicked: app.run("full")
+                            }
+                            Label {
+                                Layout.fillWidth: true
+                                wrapMode: Text.WordWrap
+                                color: "#e8a44b"
+                                text: !app.idsValid ? "Enter valid speaker and source IDs." : app.completedCount > 0 && !overwrite.checked ? "Enable overwrite in Advanced Settings to rerun the full pipeline." : "Ingest → Convert → Separate → Diarize"
+                            }
+                            Item {
+                                Layout.fillHeight: true
+                            }
+                        }
+                    }
+                }
+            }
             ColumnLayout {
-                width: leftScroll.availableWidth
-                height: Math.max(implicitHeight, leftScroll.availableHeight)
+                Layout.fillHeight: true
+                Layout.fillWidth: true
+                Layout.preferredWidth: 635
                 spacing: app.compact ? 9 : 12
                 UiCard {
                     Layout.fillWidth: true
-                    implicitHeight: inputContent.implicitHeight + 30
+                    implicitHeight: statusContent.implicitHeight + 30
                     ColumnLayout {
-                        id: inputContent
+                        id: statusContent
                         anchors.fill: parent
                         anchors.margins: 15
                         spacing: 10
                         Heading {
-                            title: "Input Source"
-                            description: "Select a local audio file or provide a supported URL."
+                            title: "Stage Status"
+                            description: "Monitor the current status of each processing stage."
                             Layout.fillWidth: true
-                        }
-                        Rectangle {
-                            implicitWidth: switchRow.implicitWidth + 6
-                            implicitHeight: 36
-                            color: "#121821"
-                            radius: 8
-                            border.color: "#2a3443"
-                            RowLayout {
-                                id: switchRow
-                                anchors.centerIn: parent
-                                spacing: 2
-                                UiButton {
-                                    text: "Local file"
-                                    symbol: "file"
-                                    selected: !app.urlMode
-                                    implicitHeight: 28
-                                    enabled: !pipelineBridge.busy
-                                    onClicked: app.urlMode = false
-                                }
-                                UiButton {
-                                    text: "URL"
-                                    symbol: "link"
-                                    selected: app.urlMode
-                                    implicitHeight: 28
-                                    enabled: !pipelineBridge.busy
-                                    onClicked: app.urlMode = true
-                                }
-                            }
-                        }
-                        RowLayout {
-                            Layout.fillWidth: true
-                            spacing: 8
-                            UiField {
-                                id: file
-                                objectName: "file"
-                                visible: !app.urlMode
-                                Layout.fillWidth: true
-                                mono: true
-                                placeholderText: "Select an audio file"
-                                enabled: !pipelineBridge.busy
-                                Accessible.name: "Audio file path"
-                            }
-                            UiField {
-                                id: url
-                                objectName: "url"
-                                visible: app.urlMode
-                                Layout.fillWidth: true
-                                mono: true
-                                placeholderText: "https://www.youtube.com/watch?v=VIDEO_ID"
-                                enabled: !pipelineBridge.busy
-                                Accessible.name: "Audio URL"
-                            }
-                            UiButton {
-                                visible: !app.urlMode
-                                text: "Browse"
-                                symbol: "folder"
-                                selected: true
-                                enabled: !pipelineBridge.busy
-                                onClicked: picker.open()
-                            }
-                        }
-                        Label {
-                            text: app.urlMode ? "YouTube and Castbox links are supported" : "MP3, WAV, M4A, FLAC, OGG, or other FFmpeg-readable audio"
-                            color: app.urlMode && url.text.length && !app.sourceValid ? "#e06c75" : "#718096"
-                        }
-                        Rule {}
-                        Label {
-                            text: "Diarized output directory (optional)"
-                        }
-                        RowLayout {
-                            Layout.fillWidth: true
-                            spacing: 8
-                            UiField {
-                                objectName: "outputParent"
-                                Layout.fillWidth: true
-                                mono: true
-                                text: pipelineBridge.outputParent
-                                placeholderText: "Default project output — or select a folder"
-                                enabled: !pipelineBridge.busy
-                                Accessible.name: "Diarized output directory"
-                                onTextEdited: pipelineBridge.setOutputParent(text)
-                            }
-                            UiButton {
-                                text: "Browse"
-                                symbol: "folder"
-                                selected: true
-                                enabled: !pipelineBridge.busy
-                                onClicked: outputPicker.open()
-                            }
-                            UiButton {
-                                text: "Default"
-                                enabled: !pipelineBridge.busy && pipelineBridge.outputParent.length > 0
-                                onClicked: pipelineBridge.setOutputParent("")
-                            }
-                        }
-                        Label {
-                            Layout.fillWidth: true
-                            wrapMode: Text.WrapAnywhere
-                            text: pipelineBridge.outputParent.length ? "Final audio folder: " + (pipelineBridge.outputPath || "Select an existing directory and a valid speaker name") : "Leave empty to use the default project output."
-                            color: "#718096"
-                        }
-                    }
-                }
-                UiCard {
-                    Layout.fillWidth: true
-                    implicitHeight: settingsContent.implicitHeight + 24
-                    ColumnLayout {
-                        id: settingsContent
-                        anchors.fill: parent
-                        anchors.margins: 12
-                        spacing: 10
-                        RowLayout {
-                            Layout.fillWidth: true
-                            Image {
-                                source: "assets/settings.svg"
-                                width: 16
-                                height: 16
-                            }
-                            UiText {
-                                text: "Optional Settings"
-                                font.pixelSize: 12
-                                font.weight: Font.DemiBold
-                                Layout.fillWidth: true
-                            }
-                            UiButton {
-                                text: app.optionalOpen ? "Hide  ⌃" : "Show  ⌄"
-                                implicitHeight: 24
-                                onClicked: app.optionalOpen = !app.optionalOpen
-                            }
                         }
                         ColumnLayout {
-                            visible: app.optionalOpen
                             Layout.fillWidth: true
-                            spacing: 9
-                            Rule {}
-                            RowLayout {
-                                Layout.fillWidth: true
-                                spacing: 9
-                                enabled: !pipelineBridge.busy
-                                ColumnLayout {
+                            spacing: app.compact ? 4 : 5
+                            Repeater {
+                                model: app.names
+                                Rectangle {
+                                    id: stageRow
+                                    required property string modelData
+                                    required property int index
+                                    property string stateName: app.states[index] || "not-started"
+                                    property color accent: stateName === "completed" ? "#35b8a9" : stateName === "processing" ? "#4b9af2" : stateName === "failed" ? "#e06c75" : "#8d9aaf"
                                     Layout.fillWidth: true
-                                    spacing: 5
-                                    Label {
-                                        text: "Speaker ID"
-                                    }
-                                    UiField {
-                                        id: speaker
-                                        objectName: "speaker"
-                                        text: "speaker_001"
-                                        mono: true
-                                        Layout.fillWidth: true
-                                        onTextChanged: app.selectSource()
-                                        Accessible.name: "Speaker ID"
-                                    }
-                                    Label {
-                                        text: "Any folder name, e.g. hamid"
-                                        font.pixelSize: 9
-                                        color: pipelineBridge.validSpeakerName(speaker.text) ? "#6f7e93" : "#e06c75"
-                                    }
-                                }
-                                ColumnLayout {
-                                    Layout.fillWidth: true
-                                    spacing: 5
-                                    Label {
-                                        text: "Source ID"
-                                    }
-                                    UiField {
-                                        id: sourceId
-                                        objectName: "sourceId"
-                                        text: "source_001"
-                                        mono: true
-                                        Layout.fillWidth: true
-                                        onTextChanged: app.selectSource()
-                                        Accessible.name: "Source ID"
-                                    }
-                                    Label {
-                                        text: "source_ + 3–6 digits"
-                                        font.pixelSize: 9
-                                        color: /^source_[0-9]{3,6}$/.test(sourceId.text) ? "#6f7e93" : "#e06c75"
-                                    }
-                                }
-                                ColumnLayout {
-                                    Layout.preferredWidth: 130
-                                    Layout.maximumWidth: 130
-                                    spacing: 5
-                                    Label {
-                                        text: "Language"
-                                    }
-                                    UiCombo {
-                                        id: language
-                                        model: ["Persian (fa)", "English (en)", "Arabic (ar)"]
-                                        Layout.fillWidth: true
-                                        implicitHeight: 34
-                                    }
-                                    Label {
-                                        text: " "
-                                        font.pixelSize: 9
-                                    }
-                                }
-                            }
-                            Rule {}
-                            UiButton {
-                                text: app.advancedOpen ? "Advanced settings   ⌃" : "Advanced settings   ⌄"
-                                Layout.fillWidth: true
-                                implicitHeight: 26
-                                onClicked: app.advancedOpen = !app.advancedOpen
-                            }
-                            Rectangle {
-                                visible: app.advancedOpen
-                                Layout.fillWidth: true
-                                implicitHeight: advancedContent.implicitHeight + 20
-                                color: "#121821"
-                                radius: 8
-                                border.color: "#2a3443"
-                                ColumnLayout {
-                                    id: advancedContent
-                                    anchors.fill: parent
-                                    anchors.margins: 10
-                                    spacing: 8
-                                    enabled: !pipelineBridge.busy
+                                    implicitHeight: app.compact ? 43 : 48
+                                    radius: 8
+                                    clip: true
+                                    color: stateName === "processing" ? "#182c42" : "#10161f"
+                                    border.color: stateName === "processing" ? "#315c88" : "#303948"
                                     RowLayout {
-                                        Layout.fillWidth: true
-                                        spacing: 7
-                                        UiField {
-                                            id: speakerName
-                                            Layout.fillWidth: true
-                                            placeholderText: "Speaker name"
-                                            Accessible.name: "Speaker name"
-                                        }
-                                        UiField {
-                                            id: gender
-                                            Layout.fillWidth: true
-                                            placeholderText: "Gender — Not set"
-                                            Accessible.name: "Gender"
-                                        }
-                                        UiField {
-                                            id: count
-                                            objectName: "count"
-                                            Layout.fillWidth: true
-                                            placeholderText: "Speakers — Auto"
-                                            validator: IntValidator {
-                                                bottom: 1
-                                                top: 999
+                                        anchors.fill: parent
+                                        anchors.margins: 8
+                                        spacing: 9
+                                        Rectangle {
+                                            width: 27
+                                            height: 27
+                                            radius: 7
+                                            color: stageRow.stateName === "completed" ? "#153a39" : "#1a222e"
+                                            border.color: "#3b4657"
+                                            UiText {
+                                                anchors.centerIn: parent
+                                                text: stageRow.stateName === "completed" ? "✓" : stageRow.index + 1
+                                                color: stageRow.accent
                                             }
-                                            Accessible.name: "Expected number of speakers"
+                                        }
+                                        ColumnLayout {
+                                            Layout.fillWidth: true
+                                            spacing: 2
+                                            UiText {
+                                                text: stageRow.modelData
+                                                font.weight: Font.DemiBold
+                                            }
+                                            UiText {
+                                                text: app.descriptions[stageRow.index]
+                                                color: "#8d9aaf"
+                                                font.pixelSize: 9
+                                                Layout.fillWidth: true
+                                            }
+                                        }
+                                        Rectangle {
+                                            width: 98
+                                            height: 23
+                                            radius: 12
+                                            color: stageRow.stateName === "completed" ? "#153a39" : stageRow.stateName === "processing" ? "#183555" : stageRow.stateName === "failed" ? "#47252c" : "#1c232e"
+                                            border.color: stageRow.accent
+                                            UiText {
+                                                anchors.centerIn: parent
+                                                font.pixelSize: 9
+                                                color: stageRow.accent
+                                                text: stageRow.stateName === "not-started" ? "○  Not started" : stageRow.stateName === "completed" ? "✓  Completed" : stageRow.stateName === "failed" ? "⚠  Failed" : "◌  Processing"
+                                            }
                                         }
                                     }
-                                    UiToggle {
-                                        id: overwrite
-                                        objectName: "overwrite"
-                                        text: "Overwrite existing output"
-                                        Layout.fillWidth: true
-                                    }
-                                    UiToggle {
-                                        id: evidence
-                                        objectName: "evidence"
-                                        text: "Save diarization evidence"
-                                        checked: true
-                                        Layout.fillWidth: true
-                                        onToggled: if (!checked)
-                                            quality.checked = false
-                                    }
-                                    UiToggle {
-                                        id: quality
-                                        objectName: "quality"
-                                        text: "Automatic quality analysis"
-                                        checked: true
-                                        Layout.fillWidth: true
-                                        onToggled: if (checked)
-                                            evidence.checked = true
-                                    }
-                                    UiButton {
-                                        text: "Advanced model configuration"
-                                        symbol: "settings"
-                                        Layout.fillWidth: true
-                                        onClicked: modelDialog.open()
+                                    Item {
+                                        objectName: "stageProgress" + stageRow.index
+                                        anchors.bottom: parent.bottom
+                                        anchors.left: parent.left
+                                        anchors.right: parent.right
+                                        height: 2
+                                        clip: true
+                                        Rectangle {
+                                            objectName: "stageCompletedFill" + stageRow.index
+                                            anchors.fill: parent
+                                            visible: stageRow.stateName === "completed"
+                                            color: stageRow.accent
+                                        }
+                                        Rectangle {
+                                            visible: stageRow.stateName === "processing"
+                                            height: parent.height
+                                            width: parent.width * 0.35
+                                            color: stageRow.accent
+                                            NumberAnimation on x {
+                                                running: stageRow.stateName === "processing"
+                                                loops: Animation.Infinite
+                                                from: -stageRow.width * 0.35
+                                                to: stageRow.width
+                                                duration: 1350
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -477,278 +765,118 @@ ApplicationWindow {
                 UiCard {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    Layout.minimumHeight: 160
+                    Layout.minimumHeight: app.compact ? 100 : 180
                     ColumnLayout {
                         anchors.fill: parent
                         anchors.margins: 15
-                        spacing: 9
-                        Heading {
-                            title: "Pipeline Controls"
-                            description: "Run an individual stage or execute the complete pipeline."
+                        spacing: 10
+                        RowLayout {
                             Layout.fillWidth: true
+                            Heading {
+                                title: "Process Log"
+                                description: "Live messages from the local processing service."
+                                Layout.fillWidth: true
+                            }
+                            UiButton {
+                                text: "Clear logs"
+                                symbol: "trash"
+                                implicitHeight: 27
+                                onClicked: pipelineBridge.clearLogs()
+                            }
+                        }
+                        Rectangle {
+                            Layout.fillWidth: true
+                            Layout.fillHeight: true
+                            radius: 8
+                            color: "#0b1119"
+                            border.color: "#242d3a"
+                            ListView {
+                                id: logList
+                                anchors.fill: parent
+                                anchors.margins: 10
+                                clip: true
+                                model: pipelineBridge.logs
+                                spacing: 2
+                                ScrollBar.vertical: ScrollBar {}
+                                onCountChanged: Qt.callLater(positionViewAtEnd)
+                                delegate: RowLayout {
+                                    required property var modelData
+                                    width: logList.width - 12
+                                    spacing: 10
+                                    UiText {
+                                        text: "[" + modelData.time + "]"
+                                        color: "#5f6b7e"
+                                        font.family: "JetBrains Mono"
+                                        font.pixelSize: 10
+                                        Layout.alignment: Qt.AlignTop
+                                    }
+                                    UiText {
+                                        text: modelData.text
+                                        Layout.fillWidth: true
+                                        wrapMode: Text.WrapAnywhere
+                                        elide: Text.ElideNone
+                                        font.family: "JetBrains Mono"
+                                        font.pixelSize: 10
+                                        color: modelData.tone === "success" ? "#69c9bd" : modelData.tone === "processing" ? "#70adf0" : modelData.tone === "error" ? "#e06c75" : "#aeb8c6"
+                                    }
+                                }
+                                UiText {
+                                    visible: logList.count === 0
+                                    text: "No process messages yet."
+                                    color: "#596578"
+                                    font.pixelSize: 10
+                                }
+                            }
+                        }
+                    }
+                }
+                UiCard {
+                    Layout.fillWidth: true
+                    implicitHeight: outputContent.implicitHeight + 30
+                    border.color: pipelineBridge.outputAvailable ? "#2d625e" : "#2a3443"
+                    ColumnLayout {
+                        id: outputContent
+                        anchors.fill: parent
+                        anchors.margins: 15
+                        spacing: 10
+                        RowLayout {
+                            Layout.fillWidth: true
+                            Heading {
+                                title: "Diarized Output Location"
+                                description: pipelineBridge.outputAvailable ? "Output is available and ready to review." : "Expected location after diarization completes."
+                                Layout.fillWidth: true
+                            }
+                            Label {
+                                text: pipelineBridge.outputAvailable ? "●  AVAILABLE" : "●  PENDING"
+                                color: pipelineBridge.outputAvailable ? "#76cfc4" : "#8d9aaf"
+                                font.pixelSize: 9
+                            }
                         }
                         RowLayout {
                             Layout.fillWidth: true
                             spacing: 7
-                            Repeater {
-                                model: app.names
-                                UiButton {
-                                    required property string modelData
-                                    required property int index
-                                    Layout.fillWidth: true
-                                    text: (app.states[index] === "completed" ? "✓  " : (index + 1) + "  ") + modelData
-                                    enabled: app.canRun && (index !== 0 || app.sourceValid) && (index === 0 || app.states[index - 1] === "completed") && (app.states[index] !== "completed" || overwrite.checked)
-                                    hint: "Run " + modelData + "; completed stages require overwrite"
-                                    onClicked: app.run(modelData.toLowerCase())
-                                }
-                            }
-                        }
-                        UiButton {
-                            Layout.fillWidth: true
-                            primary: true
-                            symbol: pipelineBridge.busy ? "loader" : "play"
-                            text: pipelineBridge.busy ? pipelineBridge.activeStage + " in progress" : "Run Full Pipeline"
-                            enabled: app.canFull
-                            onClicked: app.run("full")
-                        }
-                        Label {
-                            Layout.fillWidth: true
-                            wrapMode: Text.WordWrap
-                            color: "#e8a44b"
-                            text: !app.idsValid ? "Enter valid speaker and source IDs." : app.completedCount > 0 && !overwrite.checked ? "Enable overwrite in Advanced Settings to rerun the full pipeline." : "Ingest → Convert → Separate → Diarize"
-                        }
-                        Item {
-                            Layout.fillHeight: true
-                        }
-                    }
-                }
-            }
-        }
-        ColumnLayout {
-            Layout.fillHeight: true
-            Layout.fillWidth: true
-            Layout.preferredWidth: 635
-            spacing: app.compact ? 9 : 12
-            UiCard {
-                Layout.fillWidth: true
-                implicitHeight: statusContent.implicitHeight + 30
-                ColumnLayout {
-                    id: statusContent
-                    anchors.fill: parent
-                    anchors.margins: 15
-                    spacing: 10
-                    Heading {
-                        title: "Stage Status"
-                        description: "Monitor the current status of each processing stage."
-                        Layout.fillWidth: true
-                    }
-                    ColumnLayout {
-                        Layout.fillWidth: true
-                        spacing: app.compact ? 4 : 5
-                        Repeater {
-                            model: app.names
-                            Rectangle {
-                                id: stageRow
-                                required property string modelData
-                                required property int index
-                                property string stateName: app.states[index] || "not-started"
-                                property color accent: stateName === "completed" ? "#35b8a9" : stateName === "processing" ? "#4b9af2" : stateName === "failed" ? "#e06c75" : "#8d9aaf"
+                            UiField {
+                                text: pipelineBridge.outputPath
+                                mono: true
+                                readOnly: true
                                 Layout.fillWidth: true
-                                implicitHeight: app.compact ? 43 : 48
-                                radius: 8
-                                clip: true
-                                color: stateName === "processing" ? "#182c42" : "#10161f"
-                                border.color: stateName === "processing" ? "#315c88" : "#303948"
-                                RowLayout {
-                                    anchors.fill: parent
-                                    anchors.margins: 8
-                                    spacing: 9
-                                    Rectangle {
-                                        width: 27
-                                        height: 27
-                                        radius: 7
-                                        color: stageRow.stateName === "completed" ? "#153a39" : "#1a222e"
-                                        border.color: "#3b4657"
-                                        UiText {
-                                            anchors.centerIn: parent
-                                            text: stageRow.stateName === "completed" ? "✓" : stageRow.index + 1
-                                            color: stageRow.accent
-                                        }
-                                    }
-                                    ColumnLayout {
-                                        Layout.fillWidth: true
-                                        spacing: 2
-                                        UiText {
-                                            text: stageRow.modelData
-                                            font.weight: Font.DemiBold
-                                        }
-                                        UiText {
-                                            text: app.descriptions[stageRow.index]
-                                            color: "#8d9aaf"
-                                            font.pixelSize: 9
-                                            Layout.fillWidth: true
-                                        }
-                                    }
-                                    Rectangle {
-                                        width: 98
-                                        height: 23
-                                        radius: 12
-                                        color: stageRow.stateName === "completed" ? "#153a39" : stageRow.stateName === "processing" ? "#183555" : stageRow.stateName === "failed" ? "#47252c" : "#1c232e"
-                                        border.color: stageRow.accent
-                                        UiText {
-                                            anchors.centerIn: parent
-                                            font.pixelSize: 9
-                                            color: stageRow.accent
-                                            text: stageRow.stateName === "not-started" ? "○  Not started" : stageRow.stateName === "completed" ? "✓  Completed" : stageRow.stateName === "failed" ? "⚠  Failed" : "◌  Processing"
-                                        }
-                                    }
-                                }
-                                Item {
-                                    objectName: "stageProgress" + stageRow.index
-                                    anchors.bottom: parent.bottom
-                                    anchors.left: parent.left
-                                    anchors.right: parent.right
-                                    height: 2
-                                    clip: true
-                                    Rectangle {
-                                        objectName: "stageCompletedFill" + stageRow.index
-                                        anchors.fill: parent
-                                        visible: stageRow.stateName === "completed"
-                                        color: stageRow.accent
-                                    }
-                                    Rectangle {
-                                        visible: stageRow.stateName === "processing"
-                                        height: parent.height
-                                        width: parent.width * 0.35
-                                        color: stageRow.accent
-                                        NumberAnimation on x {
-                                            running: stageRow.stateName === "processing"
-                                            loops: Animation.Infinite
-                                            from: -stageRow.width * 0.35
-                                            to: stageRow.width
-                                            duration: 1350
-                                        }
-                                    }
+                                Accessible.name: "Diarized output path"
+                            }
+                            UiButton {
+                                text: app.copied ? "Copied" : "Copy path"
+                                symbol: app.copied ? "check" : "copy"
+                                onClicked: {
+                                    pipelineBridge.copyOutputPath();
+                                    app.copied = true;
+                                    copyTimer.restart();
                                 }
                             }
-                        }
-                    }
-                }
-            }
-            UiCard {
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                Layout.minimumHeight: app.compact ? 100 : 180
-                ColumnLayout {
-                    anchors.fill: parent
-                    anchors.margins: 15
-                    spacing: 10
-                    RowLayout {
-                        Layout.fillWidth: true
-                        Heading {
-                            title: "Process Log"
-                            description: "Live messages from the local processing service."
-                            Layout.fillWidth: true
-                        }
-                        UiButton {
-                            text: "Clear logs"
-                            symbol: "trash"
-                            implicitHeight: 27
-                            onClicked: pipelineBridge.clearLogs()
-                        }
-                    }
-                    Rectangle {
-                        Layout.fillWidth: true
-                        Layout.fillHeight: true
-                        radius: 8
-                        color: "#0b1119"
-                        border.color: "#242d3a"
-                        ListView {
-                            id: logList
-                            anchors.fill: parent
-                            anchors.margins: 10
-                            clip: true
-                            model: pipelineBridge.logs
-                            spacing: 2
-                            ScrollBar.vertical: ScrollBar {}
-                            onCountChanged: Qt.callLater(positionViewAtEnd)
-                            delegate: RowLayout {
-                                required property var modelData
-                                width: logList.width - 12
-                                spacing: 10
-                                UiText {
-                                    text: "[" + modelData.time + "]"
-                                    color: "#5f6b7e"
-                                    font.family: "JetBrains Mono"
-                                    font.pixelSize: 10
-                                    Layout.alignment: Qt.AlignTop
-                                }
-                                UiText {
-                                    text: modelData.text
-                                    Layout.fillWidth: true
-                                    wrapMode: Text.WrapAnywhere
-                                    elide: Text.ElideNone
-                                    font.family: "JetBrains Mono"
-                                    font.pixelSize: 10
-                                    color: modelData.tone === "success" ? "#69c9bd" : modelData.tone === "processing" ? "#70adf0" : modelData.tone === "error" ? "#e06c75" : "#aeb8c6"
-                                }
+                            UiButton {
+                                text: "Open folder"
+                                symbol: "external"
+                                enabled: pipelineBridge.outputAvailable
+                                onClicked: pipelineBridge.openOutputFolder()
                             }
-                            UiText {
-                                visible: logList.count === 0
-                                text: "No process messages yet."
-                                color: "#596578"
-                                font.pixelSize: 10
-                            }
-                        }
-                    }
-                }
-            }
-            UiCard {
-                Layout.fillWidth: true
-                implicitHeight: outputContent.implicitHeight + 30
-                border.color: pipelineBridge.outputAvailable ? "#2d625e" : "#2a3443"
-                ColumnLayout {
-                    id: outputContent
-                    anchors.fill: parent
-                    anchors.margins: 15
-                    spacing: 10
-                    RowLayout {
-                        Layout.fillWidth: true
-                        Heading {
-                            title: "Diarized Output Location"
-                            description: pipelineBridge.outputAvailable ? "Output is available and ready to review." : "Expected location after diarization completes."
-                            Layout.fillWidth: true
-                        }
-                        Label {
-                            text: pipelineBridge.outputAvailable ? "●  AVAILABLE" : "●  PENDING"
-                            color: pipelineBridge.outputAvailable ? "#76cfc4" : "#8d9aaf"
-                            font.pixelSize: 9
-                        }
-                    }
-                    RowLayout {
-                        Layout.fillWidth: true
-                        spacing: 7
-                        UiField {
-                            text: pipelineBridge.outputPath
-                            mono: true
-                            readOnly: true
-                            Layout.fillWidth: true
-                            Accessible.name: "Diarized output path"
-                        }
-                        UiButton {
-                            text: app.copied ? "Copied" : "Copy path"
-                            symbol: app.copied ? "check" : "copy"
-                            onClicked: {
-                                pipelineBridge.copyOutputPath();
-                                app.copied = true;
-                                copyTimer.restart();
-                            }
-                        }
-                        UiButton {
-                            text: "Open folder"
-                            symbol: "external"
-                            enabled: pipelineBridge.outputAvailable
-                            onClicked: pipelineBridge.openOutputFolder()
                         }
                     }
                 }
@@ -756,78 +884,154 @@ ApplicationWindow {
         }
     }
     footer: Item {
-        height: app.compact ? 58 : 66
-        Rectangle {
-            anchors.fill: parent
-            anchors.leftMargin: 28
-            anchors.rightMargin: 28
-            anchors.bottomMargin: app.compact ? 9 : 14
-            radius: 11
-            color: app.failed ? "#3b2228" : app.completedCount === 4 ? "#163331" : "#172d44"
-            border.color: app.failed ? "#7a3942" : app.completedCount === 4 ? "#2d6963" : "#315f8d"
-            RowLayout {
+        visible: app.pageView === "process"
+        height: visible ? (app.compact ? 58 : 66) * app.uiScale : 0
+        Item {
+            width: parent.width / app.uiScale
+            height: parent.height / app.uiScale
+            scale: app.uiScale
+            transformOrigin: Item.TopLeft
+            Rectangle {
                 anchors.fill: parent
-                anchors.leftMargin: 14
-                anchors.rightMargin: 14
-                spacing: 12
-                Rectangle {
-                    width: 34
-                    height: 34
-                    radius: 8
-                    color: "#203f5e"
-                    Image {
-                        anchors.centerIn: parent
-                        width: 18
-                        height: 18
-                        source: "assets/" + (app.failed ? "alert" : app.completedCount === 4 ? "check" : pipelineBridge.busy ? "loader" : "spark") + ".svg"
-                        RotationAnimator on rotation {
-                            running: pipelineBridge.busy
-                            from: 0
-                            to: 360
-                            duration: 1000
-                            loops: Animation.Infinite
-                        }
-                    }
-                }
-                ColumnLayout {
-                    Layout.preferredWidth: 360
-                    spacing: 2
-                    UiText {
-                        text: app.failed ? "Pipeline Failed" : app.completedCount === 4 ? "Pipeline Completed Successfully" : pipelineBridge.busy ? "Pipeline in Progress" : "Ready to Process"
-                        font.weight: Font.DemiBold
-                    }
-                    Label {
-                        text: app.failed ? "Review the process log for details." : app.completedCount + " of 4 stages completed. " + (pipelineBridge.busy ? pipelineBridge.activeStage + " is currently running." : app.completedCount === 4 ? "Your diarized audio files are ready." : "Continue when ready.")
-                        font.pixelSize: 9
-                    }
-                }
-                Rectangle {
-                    Layout.fillWidth: true
-                    height: 4
-                    radius: 2
-                    color: "#304050"
+                anchors.leftMargin: 28
+                anchors.rightMargin: 28
+                anchors.bottomMargin: app.compact ? 9 : 14
+                radius: 11
+                color: app.failed ? "#3b2228" : app.completedCount === 4 ? "#163331" : "#172d44"
+                border.color: app.failed ? "#7a3942" : app.completedCount === 4 ? "#2d6963" : "#315f8d"
+                RowLayout {
+                    anchors.fill: parent
+                    anchors.leftMargin: 14
+                    anchors.rightMargin: 14
+                    spacing: 12
                     Rectangle {
-                        width: parent.width * app.completedCount / 4
-                        height: 4
-                        radius: 2
-                        color: app.completedCount === 4 ? "#35b8a9" : "#4b9af2"
-                        Behavior on width {
-                            NumberAnimation {
-                                duration: 400
+                        width: 34
+                        height: 34
+                        radius: 8
+                        color: "#203f5e"
+                        Image {
+                            anchors.centerIn: parent
+                            width: 18
+                            height: 18
+                            source: "assets/" + (app.failed ? "alert" : app.completedCount === 4 ? "check" : pipelineBridge.busy ? "loader" : "spark") + ".svg"
+                            RotationAnimator on rotation {
+                                running: pipelineBridge.busy
+                                from: 0
+                                to: 360
+                                duration: 1000
+                                loops: Animation.Infinite
                             }
                         }
                     }
+                    ColumnLayout {
+                        Layout.preferredWidth: 360
+                        spacing: 2
+                        UiText {
+                            text: app.failed ? "Pipeline Failed" : app.completedCount === 4 ? "Pipeline Completed Successfully" : pipelineBridge.busy ? "Pipeline in Progress" : "Ready to Process"
+                            font.weight: Font.DemiBold
+                        }
+                        Label {
+                            text: app.failed ? "Review the process log for details." : app.completedCount + " of 4 stages completed. " + (pipelineBridge.busy ? pipelineBridge.activeStage + " is currently running." : app.completedCount === 4 ? "Your diarized audio files are ready." : "Continue when ready.")
+                            font.pixelSize: 9
+                        }
+                    }
+                    Rectangle {
+                        Layout.fillWidth: true
+                        height: 4
+                        radius: 2
+                        color: "#304050"
+                        Rectangle {
+                            width: parent.width * app.completedCount / 4
+                            height: 4
+                            radius: 2
+                            color: app.completedCount === 4 ? "#35b8a9" : "#4b9af2"
+                            Behavior on width {
+                                NumberAnimation {
+                                    duration: 400
+                                }
+                            }
+                        }
+                    }
+                    UiText {
+                        text: app.completedCount + "/4"
+                        font.pixelSize: 14
+                        font.bold: true
+                    }
                 }
-                UiText {
-                    text: app.completedCount + "/4"
-                    font.pixelSize: 14
-                    font.bold: true
+            }
+        }
+    }
+    Popup {
+        id: tokenSetup
+        objectName: "tokenSetupDialog"
+        parent: Overlay.overlay
+        anchors.centerIn: parent
+        width: 440
+        height: 275
+        scale: app.uiScale
+        padding: 22
+        modal: true
+        focus: true
+        closePolicy: Popup.NoAutoClose
+        Overlay.modal: Rectangle {
+            color: "#99000000"
+        }
+        background: UiCard {}
+        onClosed: hfToken.text = ""
+        ColumnLayout {
+            anchors.fill: parent
+            spacing: 12
+            Heading {
+                title: "Hugging Face token"
+                description: "Add your access token to set up local diarization."
+                Layout.fillWidth: true
+            }
+            Label {
+                text: "The project has no .env file. Your token will be saved in that file on this computer."
+                wrapMode: Text.WordWrap
+                Layout.fillWidth: true
+            }
+            UiField {
+                id: hfToken
+                objectName: "huggingFaceTokenInput"
+                Layout.fillWidth: true
+                placeholderText: "hf_…"
+                echoMode: TextInput.Password
+                inputMethodHints: Qt.ImhHiddenText | Qt.ImhNoPredictiveText
+                Accessible.name: "Hugging Face access token"
+                onAccepted: if (text.trim().length && pipelineBridge.saveHuggingFaceToken(text))
+                    tokenSetup.close()
+            }
+            Label {
+                visible: pipelineBridge.tokenSetupError.length > 0
+                text: pipelineBridge.tokenSetupError
+                color: "#ed8b94"
+                wrapMode: Text.WordWrap
+                Layout.fillWidth: true
+            }
+            Item {
+                Layout.fillHeight: true
+            }
+            RowLayout {
+                Layout.alignment: Qt.AlignRight
+                UiButton {
+                    text: "Later"
+                    onClicked: tokenSetup.close()
+                }
+                UiButton {
+                    objectName: "saveHuggingFaceTokenButton"
+                    text: "Save token"
+                    selected: true
+                    enabled: hfToken.text.trim().length > 0
+                    onClicked: if (pipelineBridge.saveHuggingFaceToken(hfToken.text))
+                        tokenSetup.close()
                 }
             }
         }
     }
     Popup {
         id: modelDialog
+        scale: app.uiScale
         objectName: "modelDialog"
         parent: Overlay.overlay
         anchors.centerIn: parent
@@ -958,5 +1162,9 @@ ApplicationWindow {
             pipelineBridge.reportBusyClose();
         }
     }
-    Component.onCompleted: app.selectSource()
+    Component.onCompleted: {
+        app.selectSource();
+        if (pipelineBridge.needsTokenSetup)
+            tokenSetup.open();
+    }
 }

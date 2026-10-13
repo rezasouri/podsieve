@@ -49,6 +49,57 @@ class DesktopBridgeTests(unittest.TestCase):
         self.assertFalse(self.bridge.busy, "Worker did not finish")
         self.app.processEvents()
 
+    def test_token_setup_creates_private_env_without_overwriting(self):
+        self.assertTrue(self.bridge.needsTokenSetup)
+        self.assertFalse(self.bridge.saveHuggingFaceToken("bad\nvalue"))
+        self.assertFalse((self.root / ".env").exists())
+        token = "hf_TestTokenForLocalSetup123"
+        with patch.dict(os.environ, {}, clear=False):
+            self.assertTrue(self.bridge.saveHuggingFaceToken(token))
+            self.assertEqual(os.environ["HF_TOKEN"], token)
+        path = self.root / ".env"
+        self.assertEqual(path.read_text(), "HF_TOKEN=" + token + "\n")
+        self.assertEqual(path.stat().st_mode & 0o777, 0o600)
+        self.assertFalse(self.bridge.needsTokenSetup)
+        self.assertFalse(self.bridge.saveHuggingFaceToken("hf_OtherToken123"))
+        self.assertEqual(path.read_text(), "HF_TOKEN=" + token + "\n")
+        self.assertNotIn(token, str(self.bridge.logs))
+        self.assertNotIn(token, self.bridge.tokenSetupError)
+
+    def test_startup_does_not_select_saved_source(self):
+        self.bridge.execute("ingest", self.options)
+        self.wait_for_worker()
+        restarted = desktop.PipelineBridge()
+        self.assertEqual(restarted.stageStates, ["not-started"] * 4)
+        self.assertEqual(restarted.outputPath, "")
+        self.assertFalse(restarted.outputAvailable)
+        self.assertTrue(restarted.sources)
+        restarted.selectSource("speaker_001", "source_001")
+        self.assertEqual(restarted.stageStates[0], "completed")
+
+    def test_clear_processing_keeps_saved_sources_and_ignores_busy_reset(self):
+        self.bridge.execute("ingest", self.options)
+        self.wait_for_worker()
+        sources = self.bridge.sources
+        raw = self.root / "data/speakers/speaker_001/raw/source_001.wav"
+        self.assertTrue(raw.is_file())
+        self.bridge.setOutputParent(str(self.root))
+        self.bridge._busy = True
+        self.bridge.clearProcessing()
+        self.assertEqual(self.bridge.stageStates[0], "completed")
+        self.assertTrue(self.bridge.outputParent)
+        self.bridge._busy = False
+        self.bridge.clearProcessing()
+        self.assertEqual(self.bridge.stageStates, ["not-started"] * 4)
+        self.assertEqual(self.bridge.logs, [])
+        self.assertEqual(self.bridge.outputPath, "")
+        self.assertEqual(self.bridge.outputParent, "")
+        self.assertFalse(self.bridge.outputAvailable)
+        self.assertEqual(self.bridge.activeStage, "")
+        self.assertEqual(self.bridge.message, "Ready")
+        self.assertEqual(self.bridge.sources, sources)
+        self.assertTrue(raw.is_file())
+
     def test_real_ingest_and_convert(self):
         self.bridge.execute("ingest", self.options)
         self.wait_for_worker()
@@ -142,6 +193,68 @@ class DesktopBridgeTests(unittest.TestCase):
         self.assertEqual(restarted.outputParent, str(desktop_folder))
         self.assertEqual(Path(restarted.outputPath), target)
         self.assertTrue(restarted.outputAvailable)
+
+    def test_registry_distinguishes_duplicate_source_ids_and_counts_files(self):
+        for name in ("hamid", "reza"):
+            self.bridge.execute("ingest", dict(self.options, speaker_id=name))
+            self.wait_for_worker()
+        rows = self.bridge.sources
+        self.assertEqual(len(rows), 2)
+        self.assertEqual({row["speaker"] for row in rows}, {"hamid", "reza"})
+        self.assertEqual(len({row["key"] for row in rows}), 2)
+        for row in rows:
+            self.assertEqual(row["artifacts"], 1)
+            self.assertEqual(row["bytes"], self.audio.stat().st_size)
+            self.assertEqual(row["stages"], ["completed"] + ["not-started"] * 3)
+            self.assertTrue(row["previewUri"].startswith("file:"))
+
+    def test_source_deletion_requires_confirmation_and_preserves_other_sources(self):
+        for source in ("source_001", "source_002"):
+            self.bridge.execute("ingest", dict(self.options, source_id=source))
+            self.wait_for_worker()
+        self.bridge.deleteSource("speaker_001", "source_001", "wrong")
+        self.assertFalse(self.bridge.busy)
+        self.assertEqual(len(self.bridge.sources), 2)
+        self.bridge.deleteSource("speaker_001", "source_001", "source_001")
+        self.wait_for_worker()
+        self.assertEqual([row["id"] for row in self.bridge.sources], ["source_002"])
+        layout = self.bridge._layout()
+        self.assertFalse(layout.raw_source_path("speaker_001", "source_001", ".wav").exists())
+        self.assertTrue(layout.raw_source_path("speaker_001", "source_002", ".wav").exists())
+        self.assertTrue(list((layout.data_root / ".podsieve-trash").glob("*/restore.json")))
+
+    def test_deletion_removes_only_owned_external_source_files(self):
+        from ui.data_registry import remove_source
+        from ui.storage_adapter import publish_output, read_preferences, write_preferences, output_key
+        parent = self.root / "Desktop"
+        parent.mkdir()
+        stage = self.root / "export"
+        (stage / "segments/SPEAKER_00").mkdir(parents=True)
+        (stage / "segments/SPEAKER_00/SPEAKER_00_0001.wav").write_bytes(self.audio.read_bytes())
+        for source in ("source_001", "source_002"):
+            self.bridge.execute("ingest", dict(self.options, source_id=source))
+            self.wait_for_worker()
+            publish_output(stage, parent / "speaker_001", "speaker_001", source, overwrite=False)
+            prefs = read_preferences(self.bridge._layout())
+            prefs["outputs"][output_key("speaker_001", source)] = str(parent)
+            write_preferences(self.bridge._layout(), prefs)
+        remove_source(self.bridge._layout(), "speaker_001", "speaker_001", "source_001")
+        target = parent / "speaker_001/SPEAKER_00"
+        self.assertFalse((target / "source_001_SPEAKER_00_0001.wav").exists())
+        self.assertTrue((target / "source_002_SPEAKER_00_0001.wav").is_file())
+        self.bridge.refreshSources()
+        self.assertEqual([row["id"] for row in self.bridge.sources], ["source_002"])
+
+    def test_registry_failure_rolls_back_source_deletion(self):
+        from ui.data_registry import remove_source
+        self.bridge.execute("ingest", self.options)
+        self.wait_for_worker()
+        with patch("ui.data_registry.write_global_registries", side_effect=[OSError("registry locked"), None]):
+            with self.assertRaises(OSError):
+                remove_source(self.bridge._layout(), "speaker_001", "speaker_001", "source_001")
+        self.bridge.refreshSources()
+        self.assertEqual(len(self.bridge.sources), 1)
+        self.assertTrue(self.bridge._layout().raw_source_path("speaker_001", "source_001", ".wav").is_file())
 
     def test_invalid_inputs_and_evidence_dependency(self):
         self.bridge.execute("full", dict(self.options, evidence=False))
