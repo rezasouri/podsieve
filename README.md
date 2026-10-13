@@ -502,6 +502,9 @@ keep UI-specific behavior separate from CLI validation and include relevant chec
 
 ## License and model terms
 
-No project-wide license has been specified yet. Check the upstream licenses and
-access conditions for pyannote models, separation checkpoints and dependencies
-before redistribution or commercial use.
+PodSieve's original source code is licensed under the [MIT License](LICENSE).
+You may use, modify, and redistribute it, including commercially, subject to
+the MIT notice requirements. Third-party libraries, fonts, separation checkpoints,
+and pyannote model weights have their own licenses and access terms; the MIT
+license does not override them. Check those terms before redistribution or
+commercial use.
