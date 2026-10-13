@@ -12,6 +12,18 @@ URL downloads and first-time model downloads need internet access.
 Local audio / YouTube / Castbox → Ingest → WAV → Vocal separation → Speaker diarization
 ```
 
+## Screenshots
+
+### Process audio and monitor each stage
+
+![PodSieve desktop processing page showing local or URL input, speaker and source settings, pipeline controls, logs, and stage status](docs/images/podsieve-processing.png)
+
+### Browse processed audio sources
+
+![PodSieve processed data page showing source search, processing stages, audio artifacts, and source details](docs/images/podsieve-processed-data.png)
+
+*Screenshots use locally generated demonstration audio and sample source metadata.*
+
 ## Contents
 
 - [Features](#features)

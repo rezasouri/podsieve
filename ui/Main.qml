@@ -462,9 +462,9 @@ ApplicationWindow {
                                             Accessible.name: "Speaker ID"
                                         }
                                         Label {
-                                            text: "Any folder name, e.g. hamid"
+                                            text: speaker.text.length && !pipelineBridge.validSpeakerName(speaker.text) ? "Enter a valid speaker folder name." : "Any folder name, e.g. hamid"
                                             font.pixelSize: 9
-                                            color: pipelineBridge.validSpeakerName(speaker.text) ? "#6f7e93" : "#e06c75"
+                                            color: !speaker.text.length || pipelineBridge.validSpeakerName(speaker.text) ? "#6f7e93" : "#e06c75"
                                         }
                                     }
                                     ColumnLayout {
@@ -483,9 +483,9 @@ ApplicationWindow {
                                             Accessible.name: "Source ID"
                                         }
                                         Label {
-                                            text: "source_ + 3–6 digits"
+                                            text: sourceId.text.length && !/^source_[0-9]{3,6}$/.test(sourceId.text) ? "Use source_ followed by 3–6 digits." : "source_ + 3–6 digits"
                                             font.pixelSize: 9
-                                            color: /^source_[0-9]{3,6}$/.test(sourceId.text) ? "#6f7e93" : "#e06c75"
+                                            color: !sourceId.text.length || /^source_[0-9]{3,6}$/.test(sourceId.text) ? "#6f7e93" : "#e06c75"
                                         }
                                     }
                                     ColumnLayout {
