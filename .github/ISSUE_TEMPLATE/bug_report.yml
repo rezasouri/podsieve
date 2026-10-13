@@ -1,0 +1,41 @@
+name: Bug report
+description: Report a reproducible problem in the Python pipeline or QML UI
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: "Please remove access tokens, cookies, private paths, and identifiable audio before posting."
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options: [Desktop UI, Ingest, Convert, Separate, Diarize, Quality analysis, Installation, Other]
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: Include minimal commands or UI steps.
+      placeholder: "1. …"
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior and redacted logs
+    validations:
+      required: true
+  - type: input
+    id: platform
+    attributes:
+      label: OS, Python, PodSieve version / commit
+    validations:
+      required: true
