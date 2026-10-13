@@ -2,12 +2,14 @@
 from pathlib import Path
 import sys
 from PySide6.QtCore import QUrl
-from PySide6.QtGui import QGuiApplication
+from PySide6.QtGui import QGuiApplication, QFontDatabase
 from PySide6.QtQml import QQmlApplicationEngine
 from bridge import PipelineBridge
 
 def main():
     app = QGuiApplication(sys.argv)
+    for font in (Path(__file__).resolve().parent / "assets/fonts").glob("*.ttf"):
+        QFontDatabase.addApplicationFont(str(font))
     engine = QQmlApplicationEngine()
     bridge = PipelineBridge()
     engine.rootContext().setContextProperty("pipelineBridge", bridge)
