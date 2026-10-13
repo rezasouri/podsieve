@@ -34,3 +34,6 @@ checkpoints/download_checks.json
 .vscode/
 .DS_Store
 Thumbs.db
+
+# Local React design reference
+/REACT/
