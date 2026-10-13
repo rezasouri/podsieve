@@ -98,7 +98,7 @@ ApplicationWindow {
        UiButton {text:"+ Add source"; primary:true; enabled: !pipelineBridge.busy; onClicked:ingestDialog.open()}
       }
       RowLayout {spacing:14
-       Repeater {model:[["REGISTERED SPEAKERS","24"],["AUDIO SOURCES","186"],["PROCESSED","142"],["NEEDS REVIEW","17"]]
+       Repeater {model:[["REGISTERED SPEAKERS",String(new Set(app.sourceRows.map(x=>x.speaker)).size)],["AUDIO SOURCES",String(app.sourceRows.length)],["DIARIZED",String(app.sourceRows.filter(x=>x.stage==="Diarize").length)],["AWAITING REVIEW",String(app.sourceRows.filter(x=>x.stage==="Diarize" && x.reviewStatus!=="completed").length)]]
         delegate: Card {required property var modelData; Layout.fillWidth:true; height:110
          Column {anchors.left:parent.left; anchors.verticalCenter:parent.verticalCenter; anchors.leftMargin:20; spacing:12
           Caption {text:modelData[0]} Text {text:modelData[1]; color:app.textMain; font.pixelSize:30; font.bold:true}
@@ -126,7 +126,7 @@ ApplicationWindow {
             delegate: Text {required property string modelData; Layout.fillWidth:true; text:modelData; font.pixelSize:12; color:modelData==="Needs review"?app.amber:app.textMain; elide:Text.ElideRight}
            }
           }
-          MouseArea {anchors.fill:parent; onClicked:{app.selected=index;app.page="Review"}}
+          MouseArea {anchors.fill:parent; onClicked:{ const actual=app.sourceRows.findIndex(x=>x.id===modelData.id && x.speaker===modelData.speaker); app.selected=Math.max(0,actual); app.page="Processing"}}
          }
         }
         Item {Layout.fillHeight:true}
@@ -177,7 +177,7 @@ ApplicationWindow {
     Item {
      ColumnLayout {anchors.fill:parent; anchors.margins:27; spacing:13
       Heading {text:"Audio Review Studio"}
-      Caption {text:app.sourceRows.length ? app.sourceRows[Math.min(app.selected,app.sourceRows.length-1)].id+" / "+app.sourceRows[Math.min(app.selected,app.sourceRows.length-1)].name+" · Timeline is sample-only" : "Select a source in Dataset · Timeline is sample-only"}
+      Caption {text:app.sourceRows.length ? app.sourceRows[Math.min(app.selected,app.sourceRows.length-1)].id+" / "+app.sourceRows[Math.min(app.selected,app.sourceRows.length-1)].name+" · Waveform and quality flags are illustrative only" : "Select a source in Dataset · Sample timeline only"}
       Card {Layout.fillWidth:true; height:52
        RowLayout {anchors.fill:parent; anchors.margins:12
         UiButton {text:app.playing?"Pause":"Play"; onClicked:app.playing=!app.playing}
