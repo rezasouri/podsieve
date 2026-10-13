@@ -1,16 +1,39 @@
-# PodSieve — Local Speaker Diarization with Desktop UI & CLI
+# PodSieve — Speaker Diarization & Vocal Separation Desktop App
 
-**Prepare audio, separate vocals, and organize speaker-labeled WAV segments with a native Qt desktop application or a Python command-line pipeline.**
+**Open-source-ready audio workflow for speaker diarization, vocal separation, and speaker-labeled dataset preparation — with a native Qt/QML desktop UI and Python CLI.**
 
-PodSieve combines audio ingestion, FFmpeg conversion, BS-RoFormer vocal separation,
-and pyannote speaker diarization in one local workspace. Use it to prepare
-podcasts, interviews, conversations, and multi-speaker recordings for audio
-review or speech dataset preparation. Audio processing runs on your machine;
-URL downloads and first-time model downloads need internet access.
+PodSieve combines **audio ingestion**, **FFmpeg conversion**, **BS-RoFormer vocal separation**, and **pyannote speaker diarization** in a local pipeline. Import your own recordings or supported YouTube/Castbox URLs, run processing stages individually or in sequence, inspect generated artifacts, and export speaker-grouped WAV clips for review or dataset preparation.
+
+**Use cases:** podcast preprocessing · interview segmentation · multi-speaker audio organization · speech dataset curation. Speaker diarization estimates *who spoke when*; it does **not** identify real-world speakers or transcribe speech.
+
+> Processing runs locally on your machine. URL ingestion and first-time model downloads require internet access. An NVIDIA GPU is recommended for the pinned CUDA environment.
+
+**[Quick start](#quick-start) · [Screenshots](#screenshots) · [Features](#features) · [Ubuntu installation](#install-on-ubuntu-with-uv) · [Windows installation](#install-on-windows-with-uv) · [CLI reference](#use-the-cli) · [Contributing](CONTRIBUTING.md)**
 
 ```text
-Local audio / YouTube / Castbox → Ingest → WAV → Vocal separation → Speaker diarization
+Local file / YouTube / Castbox
+             ↓
+           Ingest → Convert to WAV → Separate vocals → Diarize
+                                                         ↓
+                                            RTTM · JSON · Speaker WAVs
 ```
+
+## Quick start
+
+After installing [uv](https://docs.astral.sh/uv/getting-started/installation/), Python 3.10, and the [platform prerequisites](#requirements):
+
+```bash
+git clone https://github.com/rezasouri/podsieve.git
+cd podsieve
+uv python install 3.10
+uv sync --locked
+uv run --locked python ui/main.py
+```
+
+You can also run `uv run --locked python run.py --help` for the CLI.
+
+**Before diarization:** accept the gated pyannote model terms and configure your Hugging Face token as described in [token setup](#hugging-face-token-setup). See the platform-specific installation sections for FFmpeg, graphics/runtime requirements, and CUDA notes. The Windows GPU/model path is not yet end-to-end validated.
+
 
 ## Screenshots
 
@@ -26,6 +49,7 @@ Local audio / YouTube / Castbox → Ingest → WAV → Vocal separation → Spea
 
 ## Contents
 
+- [Quick start](#quick-start)
 - [Features](#features)
 - [Desktop UI or CLI?](#desktop-ui-or-cli)
 - [Requirements](#requirements)
@@ -39,6 +63,8 @@ Local audio / YouTube / Castbox → Ingest → WAV → Vocal separation → Spea
 - [Diarization quality analysis](#diarization-quality-analysis)
 - [Troubleshooting](#troubleshooting)
 - [Development and contributing](#development-and-contributing)
+- [Who is PodSieve for?](#who-is-podsieve-for)
+- [Project status and limitations](#project-status-and-limitations)
 
 ## Features
 
@@ -61,6 +87,22 @@ Local audio / YouTube / Castbox → Ingest → WAV → Vocal separation → Spea
 
 Speaker diarization assigns labels such as `SPEAKER_00`; it does not transcribe
 speech or automatically identify people by their real names.
+
+## Who is PodSieve for?
+
+| If you need to… | PodSieve provides… |
+| --- | --- |
+| Prepare podcast/interview audio | Import local files or supported URLs and extract vocals |
+| Export diarized training candidates | Speaker-grouped WAV clips, annotations, and manifests |
+| Inspect processing history | A native desktop view of sources, stages, and artifacts |
+| Automate a repeatable local workflow | A Python CLI for individual processing stages |
+| Find potentially unreliable segments | Quality analysis reports and review-clip exports |
+
+## Project status and limitations
+
+PodSieve is an early-stage project (`0.1.0`). It uses gated third-party model weights, and its quality-analysis output is **not** a guarantee of clean speaker labels. GPU/model processing on Windows has not yet been validated end to end. The QML desktop interface and CLI share the processing pipeline, but some UI-only output and naming conveniences are not available through the CLI.
+
+Feature requests, bug reports, reproducible test cases, and contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md). If PodSieve is useful to your audio workflow, consider starring the repository to make it easier for others to discover.
 
 ## Desktop UI or CLI?
 
