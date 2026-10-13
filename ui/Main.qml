@@ -272,18 +272,205 @@ ApplicationWindow {
    }
   }
  }
- Dialog {
-  id:ingestDialog; title:"Add source · UI preview"; modal:true; anchors.centerIn:Overlay.overlay; width:560; standardButtons:Dialog.Close
-  background:Rectangle{color:app.panel; radius:12}
-  contentItem: ColumnLayout {spacing:12
-   Caption {text:"Source and speaker IDs must contain 3–6 digits."}
-   UiField {Layout.fillWidth:true; text:"speaker_001"}
-   UiField {Layout.fillWidth:true; text:"source_007"}
-   RowLayout {RadioButton{text:"URL"; checked:app.urlMode; onClicked:app.urlMode=true} RadioButton{text:"Local backend path"; checked:!app.urlMode; onClicked:app.urlMode=false}}
-   UiField {Layout.fillWidth:true; placeholderText:app.urlMode?"https://youtube.com/watch?v=...":"/home/user/audio.mp3"}
-   UiButton {text:app.advanced?"Hide advanced":"Advanced settings"; onClicked:app.advanced=!app.advanced}
-   UiField {Layout.fillWidth:true; visible:app.advanced; text:"251/140/bestaudio"}
-   Caption {text:"Demo form only; no audio import or network calls."}
+
+ Popup {
+  id: ingestDialog
+  parent: Overlay.overlay
+  anchors.centerIn: parent
+  width: Math.min(app.width - 72, 760)
+  height: Math.min(app.height - 76, 750)
+  modal: true
+  focus: true
+  padding: 0
+  closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+  Overlay.modal: Rectangle { color: "#B9000000" }
+  background: Rectangle {
+   color: "#1D2430"; radius: 14
+   border.color: "#3C4657"; border.width: 1
+  }
+
+  property string speakerId: "speaker_001"
+  property string sourceId: "source_007"
+  property string audioLocation: ""
+  property string sourceName: ""
+  property string language: "fa"
+  property string cookieMode: "browser"
+
+  ColumnLayout {
+   anchors.fill: parent
+   spacing: 0
+
+   Rectangle {
+    Layout.fillWidth: true; Layout.preferredHeight: 88
+    color: "#222B39"; radius: 14
+    RowLayout {
+     anchors.fill: parent
+     anchors.leftMargin: 26; anchors.rightMargin: 22
+     ColumnLayout {
+      spacing: 5
+      Text {text: "Add audio source"; font.pixelSize: 21; font.bold: true; color: app.textMain}
+      Caption {text: "Register a source for the PodSieve workspace"}
+     }
+     Item {Layout.fillWidth: true}
+     UiButton {text: "✕"; Layout.preferredWidth: 38; onClicked: ingestDialog.close()}
+    }
+    Rectangle {anchors.bottom: parent.bottom; width: parent.width; height: 1; color: "#303948"}
+   }
+
+   ScrollView {
+    id: ingestScroll
+    Layout.fillWidth: true
+    Layout.fillHeight: true
+    clip: true
+    ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+    ColumnLayout {
+     width: ingestScroll.availableWidth - 52
+     x: 26
+     spacing: 13
+
+     Item {Layout.preferredHeight: 9}
+     Caption {text: "SOURCE IDENTIFICATION"; font.bold: true; color: app.blue}
+
+     RowLayout {
+      Layout.fillWidth: true; spacing: 14
+      ColumnLayout {
+       Layout.fillWidth: true; spacing: 7
+       Caption {text: "Speaker ID  *"}
+       UiField {Layout.fillWidth: true; text: ingestDialog.speakerId; onTextChanged: ingestDialog.speakerId = text}
+      }
+      ColumnLayout {
+       Layout.fillWidth: true; spacing: 7
+       Caption {text: "Source ID  *"}
+       UiField {Layout.fillWidth: true; text: ingestDialog.sourceId; onTextChanged: ingestDialog.sourceId = text}
+      }
+     }
+
+     RowLayout {
+      Layout.fillWidth: true; spacing: 14
+      ColumnLayout {
+       Layout.fillWidth: true; spacing: 7
+       Caption {text: "Speaker name (optional)"}
+       UiField {Layout.fillWidth: true; placeholderText: "e.g. Podcast narrator"; onTextChanged: ingestDialog.sourceName = text}
+      }
+      ColumnLayout {
+       Layout.preferredWidth: 170; spacing: 7
+       Caption {text: "Language"}
+       UiField {Layout.fillWidth: true; text: "fa"; onTextChanged: ingestDialog.language = text}
+      }
+     }
+
+     Rectangle {Layout.fillWidth: true; Layout.preferredHeight: 1; color: "#303948"; Layout.topMargin: 7; Layout.bottomMargin: 3}
+     Caption {text: "INPUT SOURCE"; font.bold: true; color: app.blue}
+     RowLayout {
+      Layout.fillWidth: true; spacing: 12
+      Rectangle {
+       Layout.fillWidth: true; height: 57; radius: 9
+       color: app.urlMode ? "#263952" : "#151B25"
+       border.color: app.urlMode ? app.blue : "#3C4657"
+       border.width: 1
+       Column {
+        anchors.centerIn: parent; spacing: 3
+        Text {text: "↗  URL"; color: app.textMain; font.pixelSize: 14; font.bold: true}
+        Caption {text: "YouTube or Castbox"}
+       }
+       MouseArea {anchors.fill: parent; onClicked: app.urlMode = true}
+      }
+      Rectangle {
+       Layout.fillWidth: true; height: 57; radius: 9
+       color: !app.urlMode ? "#263952" : "#151B25"
+       border.color: !app.urlMode ? app.blue : "#3C4657"
+       border.width: 1
+       Column {
+        anchors.centerIn: parent; spacing: 3
+        Text {text: "▤  Local file path"; color: app.textMain; font.pixelSize: 14; font.bold: true}
+        Caption {text: "Path on backend machine"}
+       }
+       MouseArea {anchors.fill: parent; onClicked: app.urlMode = false}
+      }
+     }
+
+     Caption {text: app.urlMode ? "Audio source URL" : "Absolute local file path"}
+     UiField {
+      Layout.fillWidth: true
+      text: ingestDialog.audioLocation
+      placeholderText: app.urlMode ? "https://www.youtube.com/watch?v=..." : "/home/user/podcast.mp3"
+      onTextChanged: ingestDialog.audioLocation = text
+     }
+     Caption {
+      Layout.fillWidth: true
+      wrapMode: Text.WordWrap
+      text: app.urlMode ? "Supported providers: YouTube and Castbox. Playlists are not supported." : "This path refers to the computer running Python, not a browser upload."
+     }
+
+     Rectangle {Layout.fillWidth: true; Layout.preferredHeight: 1; color: "#303948"; Layout.topMargin: 7}
+     Rectangle {
+      Layout.fillWidth: true; height: 39; radius: 7; color: "#242D3B"
+      RowLayout {
+       anchors.fill: parent; anchors.leftMargin: 12; anchors.rightMargin: 12
+       Text {text: app.advanced ? "⌄" : "›"; color: app.blue; font.pixelSize: 18}
+       Text {text: "Advanced settings"; color: app.textMain; font.pixelSize: 13; font.bold: true}
+       Item {Layout.fillWidth: true}
+       Caption {text: app.advanced ? "Collapse" : "Expand"}
+      }
+      MouseArea {anchors.fill: parent; onClicked: app.advanced = !app.advanced}
+     }
+     ColumnLayout {
+      visible: app.advanced
+      Layout.fillWidth: true; spacing: 11
+      RowLayout {
+       Layout.fillWidth: true; spacing: 12
+       ColumnLayout {
+        Layout.fillWidth: true; spacing: 6
+        Caption {text: "Stream format"}
+        UiField {Layout.fillWidth: true; text: "251/140/bestaudio"}
+       }
+       ColumnLayout {
+        Layout.preferredWidth: 150; spacing: 6
+        Caption {text: "Audio format"}
+        UiField {Layout.fillWidth: true; text: "opus"}
+       }
+      }
+      Caption {visible: app.urlMode; text: "YOUTUBE COOKIES  ·  Applies only to YouTube URLs"; color: app.blue}
+      RowLayout {
+       visible: app.urlMode; Layout.fillWidth: true
+       RadioButton {text: "None"; checked: ingestDialog.cookieMode === "none"; onClicked: ingestDialog.cookieMode = "none"}
+       RadioButton {text: "Browser"; checked: ingestDialog.cookieMode === "browser"; onClicked: ingestDialog.cookieMode = "browser"}
+       RadioButton {text: "Cookie file"; checked: ingestDialog.cookieMode === "file"; onClicked: ingestDialog.cookieMode = "file"}
+      }
+      UiField {
+       visible: app.urlMode && ingestDialog.cookieMode !== "none"
+       Layout.fillWidth: true
+       text: ingestDialog.cookieMode === "browser" ? "chrome" : ""
+       placeholderText: ingestDialog.cookieMode === "browser" ? "Backend browser (e.g. chrome)" : "/path/to/cookies.txt"
+      }
+      CheckBox {text: "Overwrite existing stage output"; checked: false; palette.windowText: app.textMain}
+     }
+     Item {Layout.preferredHeight: 15}
+    }
+   }
+
+   Rectangle {
+    Layout.fillWidth: true; Layout.preferredHeight: 84
+    color: "#222B39"; radius: 14
+    Rectangle {anchors.top: parent.top; width: parent.width; height: 1; color: "#303948"}
+    RowLayout {
+     anchors.fill: parent; anchors.leftMargin: 24; anchors.rightMargin: 24; spacing: 12
+     ColumnLayout {
+      spacing: 3
+      Caption {text: "UI demonstration only"; color: app.amber}
+      Caption {text: "No file import or backend execution"}
+     }
+     Item {Layout.fillWidth: true}
+     UiButton {text: "Cancel"; onClicked: ingestDialog.close()}
+     UiButton {
+      text: "Preview source"; primary: true
+      enabled: /^speaker_[0-9]{3,6}$/.test(ingestDialog.speakerId)
+               && /^source_[0-9]{3,6}$/.test(ingestDialog.sourceId)
+               && ingestDialog.audioLocation.length > 0
+      onClicked: ingestDialog.close()
+     }
+    }
+   }
   }
  }
 }
