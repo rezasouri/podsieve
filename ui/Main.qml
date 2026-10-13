@@ -297,6 +297,10 @@ ApplicationWindow {
   property string sourceName: ""
   property string language: "fa"
   property string cookieMode: "browser"
+  readonly property bool speakerValid: /^speaker_[0-9]{3,6}$/.test(speakerId)
+  readonly property bool sourceValid: /^source_[0-9]{3,6}$/.test(sourceId)
+  readonly property bool locationValid: audioLocation.trim().length > 0
+  readonly property bool canIngest: speakerValid && sourceValid && locationValid && !pipelineBridge.busy
 
   ColumnLayout {
    anchors.fill: parent
@@ -339,11 +343,13 @@ ApplicationWindow {
        Layout.fillWidth: true; spacing: 7
        Caption {text: "Speaker ID  *"}
        UiField {Layout.fillWidth: true; text: ingestDialog.speakerId; onTextChanged: ingestDialog.speakerId = text}
+       Caption {text: "Format: speaker_001 (3–6 digits)"; color: ingestDialog.speakerValid ? app.subdued : "#E06C75"; Layout.fillWidth: true}
       }
       ColumnLayout {
        Layout.fillWidth: true; spacing: 7
        Caption {text: "Source ID  *"}
        UiField {Layout.fillWidth: true; text: ingestDialog.sourceId; onTextChanged: ingestDialog.sourceId = text}
+       Caption {text: "Format: source_001 (3–6 digits)"; color: ingestDialog.sourceValid ? app.subdued : "#E06C75"; Layout.fillWidth: true}
       }
      }
 
@@ -401,7 +407,8 @@ ApplicationWindow {
      Caption {
       Layout.fillWidth: true
       wrapMode: Text.WordWrap
-      text: app.urlMode ? "Supported providers: YouTube and Castbox. Playlists are not supported." : "This path refers to the computer running Python, not a browser upload."
+      text: !ingestDialog.locationValid ? "Required: provide a source URL or local file path." : (app.urlMode ? "Supported providers: YouTube and Castbox. Playlists are not supported." : "This path refers to the computer running Python, not a browser upload.")
+      color: ingestDialog.locationValid ? app.subdued : "#E06C75"
      }
 
      Rectangle {Layout.fillWidth: true; Layout.preferredHeight: 1; color: "#303948"; Layout.topMargin: 7}
@@ -459,17 +466,15 @@ ApplicationWindow {
      anchors.fill: parent; anchors.leftMargin: 24; anchors.rightMargin: 24; spacing: 12
      ColumnLayout {
       spacing: 3
-      Caption {text: pipelineBridge.busy ? "Processing..." : "Runs local Python ingest"; color: app.amber}
+      Caption {text: pipelineBridge.busy ? "Processing..." : (!ingestDialog.speakerValid ? "Invalid Speaker ID" : !ingestDialog.sourceValid ? "Invalid Source ID" : !ingestDialog.locationValid ? "URL or file path required" : "Ready to ingest"); color: ingestDialog.canIngest ? app.teal : app.amber}
       Caption {text: pipelineBridge.message; Layout.maximumWidth: 300; elide: Text.ElideRight}
      }
      Item {Layout.fillWidth: true}
      UiButton {text: "Cancel"; onClicked: ingestDialog.close()}
      UiButton {
       text: pipelineBridge.busy ? "Running..." : "Ingest source"; primary: true
-      enabled: /^speaker_[0-9]{3,6}$/.test(ingestDialog.speakerId)
-               && /^source_[0-9]{3,6}$/.test(ingestDialog.sourceId)
-               && ingestDialog.audioLocation.length > 0
-      onClicked: { pipelineBridge.ingest(ingestDialog.speakerId, ingestDialog.sourceId, app.urlMode ? "url" : "file", ingestDialog.audioLocation, ingestDialog.sourceName, ingestDialog.language, false); ingestDialog.close() }
+      enabled: ingestDialog.canIngest
+      onClicked: { pipelineBridge.ingest(ingestDialog.speakerId, ingestDialog.sourceId, app.urlMode ? "url" : "file", ingestDialog.audioLocation.trim(), ingestDialog.sourceName, ingestDialog.language, false) }
      }
     }
    }
