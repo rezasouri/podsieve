@@ -124,10 +124,11 @@ class PipelineBridge(QObject):
 
     @Slot()
     def refreshSources(self):
-        from src.core.config import load_config
-        from run import storage_layout_from_config
+        from src.core.config import load_config, resolve_from_root
+        from src.core.storage_layout import StorageLayout
         config = load_config(ROOT / "configs/default.yaml")
-        layout = storage_layout_from_config(ROOT, config)
+        storage = config.get("storage", {})
+        layout = StorageLayout(data_root=resolve_from_root(ROOT, storage.get("data_root", "data")), schema_version=str(storage.get("schema_version", "1.0")))
         rows = []
         for path in sorted(layout.speakers_root.glob("speaker_*/metadata.json")):
             try:
