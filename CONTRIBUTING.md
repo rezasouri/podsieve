@@ -50,4 +50,4 @@ Be respectful, constructive, and specific in reviews and discussions. Assume goo
 
 ## Licensing
 
-A project-wide license has not yet been selected. Before contributing material intended for redistribution, check the current repository license status and third-party model/asset terms.
+PodSieve's original source code is distributed under the [MIT License](LICENSE). By contributing, you agree your contributions may be distributed under this project license. Third-party assets, dependencies, and model weights retain their own license and access terms.
