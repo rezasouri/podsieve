@@ -13,6 +13,7 @@ ApplicationWindow {
     minimumHeight: 620
     title: "PodSieve — Local Audio Processing Workspace"
     color: "#0d1118"
+    property string pageView: "data"
     property bool compact: height <= 810
     property bool urlMode: false
     property bool optionalOpen: true
@@ -151,6 +152,50 @@ ApplicationWindow {
                 Layout.fillWidth: true
             }
             Rectangle {
+                implicitWidth: navigation.implicitWidth + 6
+                implicitHeight: 36
+                color: "#111720"
+                border.color: "#2a3443"
+                radius: 9
+                RowLayout {
+                    id: navigation
+                    anchors.centerIn: parent
+                    spacing: 3
+                    UiButton {
+                        id: processNav
+                        text: "Process Audio"
+                        symbol: "wave"
+                        implicitHeight: 30
+                        selected: app.pageView === "process"
+                        background: Rectangle {
+                            radius: 6
+                            color: processNav.selected ? "#183555" : "transparent"
+                            border.color: processNav.selected ? "#274566" : "transparent"
+                        }
+                        onClicked: app.pageView = "process"
+                    }
+                    UiButton {
+                        id: dataNav
+                        text: "Processed Data"
+                        symbol: "database"
+                        implicitHeight: 30
+                        selected: app.pageView === "data"
+                        background: Rectangle {
+                            radius: 6
+                            color: dataNav.selected ? "#183555" : "transparent"
+                            border.color: dataNav.selected ? "#274566" : "transparent"
+                        }
+                        onClicked: {
+                            pipelineBridge.refreshSources();
+                            app.pageView = "data";
+                        }
+                    }
+                }
+            }
+            Item {
+                Layout.fillWidth: true
+            }
+            Rectangle {
                 width: 7
                 height: 7
                 radius: 4
@@ -162,7 +207,22 @@ ApplicationWindow {
             }
         }
     }
+    Loader {
+        anchors.fill: parent
+        active: app.pageView === "data"
+        sourceComponent: Component {
+            ProcessedData {
+                onAddSource: app.pageView = "process"
+                onProcessSource: (speakerId, selectedSourceId) => {
+                    speaker.text = speakerId;
+                    sourceId.text = selectedSourceId;
+                    app.pageView = "process";
+                }
+            }
+        }
+    }
     RowLayout {
+        visible: app.pageView === "process"
         anchors.fill: parent
         anchors.leftMargin: width < 1280 ? 20 : 28
         anchors.rightMargin: anchors.leftMargin
@@ -756,7 +816,8 @@ ApplicationWindow {
         }
     }
     footer: Item {
-        height: app.compact ? 58 : 66
+        visible: app.pageView === "process"
+        height: visible ? (app.compact ? 58 : 66) : 0
         Rectangle {
             anchors.fill: parent
             anchors.leftMargin: 28

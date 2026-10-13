@@ -23,6 +23,7 @@ engine.rootContext().setContextProperty("pipelineBridge", bridge)
 engine.load(QUrl.fromLocalFile(str(Path("ui/Main.qml").resolve())))
 assert engine.rootObjects()
 window = engine.rootObjects()[0]
+window.setProperty("pageView", "process")
 import tempfile
 output_tmp = tempfile.TemporaryDirectory()
 window.findChild(QObject, "speaker").setProperty("text", "hamid")
@@ -93,7 +94,7 @@ import shiboken6
 shiboken6.delete(engine)
 raise SystemExit(result)
 '''
-        env = dict(os.environ, QT_QPA_PLATFORM="offscreen")
+        env = dict(os.environ, QT_QPA_PLATFORM="offscreen", QT_LOGGING_RULES="qt.multimedia.*=false")
         result = subprocess.run([sys.executable, "-c", script],
                                 cwd=Path(__file__).resolve().parents[1], env=env,
                                 capture_output=True, text=True, timeout=15)
