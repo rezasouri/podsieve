@@ -1,13 +1,16 @@
-"""Standalone PodSieve QML prototype. No CLI/backend integration."""
+"""PodSieve local desktop UI with direct Python QObject bridge."""
 from pathlib import Path
 import sys
 from PySide6.QtCore import QUrl
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtQml import QQmlApplicationEngine
+from bridge import PipelineBridge
 
 def main():
     app = QGuiApplication(sys.argv)
     engine = QQmlApplicationEngine()
+    bridge = PipelineBridge()
+    engine.rootContext().setContextProperty("pipelineBridge", bridge)
     engine.load(QUrl.fromLocalFile(str(Path(__file__).resolve().parent / "Main.qml")))
     if not engine.rootObjects():
         return 1
