@@ -149,8 +149,9 @@ def diarize_audio(
             input_file=input_file,
         )
 
-    evidence_dir = rttm_output.parent / "diagnostics" / "evidence"
-    quality_dir = rttm_output.parent / "diagnostics" / "quality"
+    source_dir = rttm_output.parent.parent
+    evidence_dir = source_dir / "diagnostics" / "evidence"
+    quality_dir = source_dir / "diagnostics" / "quality"
     if capture is not None:
         try:
             from importlib.metadata import version

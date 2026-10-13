@@ -55,6 +55,11 @@ def publish_clean_segments(
         if row.get("start") is not None and row.get("end") is not None
     ]
     for row in overlap_candidates:
+        # Missed overlap rows are model-generated review candidates, not
+        # confirmed errors. Keep them in diagnostics without discarding a
+        # complete diarization turn from the final output.
+        if row.get("category") != "detected_overlap":
+            continue
         start = row.get("clip_start_seconds")
         end = row.get("clip_end_seconds")
         if start is None or end is None:
@@ -108,10 +113,13 @@ def publish_clean_segments(
             "schema_version": "1.0",
             "source_id": source_id,
             "output": "final/segments",
-            "classification": "segments not intersecting generated quality/overlap review windows; not a human accuracy guarantee",
+            "classification": "segments not intersecting ranked quality findings or detected output overlaps; missed-overlap candidates remain for listening review",
             "quality_analysis_enabled": quality_analysis,
             "quality_review_windows": len(suspicious),
             "overlap_review_windows": len(overlap_candidates),
+            "overlap_windows_used_for_exclusion": sum(
+                row.get("category") == "detected_overlap" for row in overlap_candidates
+            ),
             "segment_export_padding_seconds": padding_seconds,
             "diarization_segment_count": len(segments),
             "published_segment_count": len(selected),
