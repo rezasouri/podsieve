@@ -63,6 +63,8 @@ You can also run `uv run --locked python run.py --help` for the CLI.
 - [Diarization quality analysis](#diarization-quality-analysis)
 - [Troubleshooting](#troubleshooting)
 - [Development and contributing](#development-and-contributing)
+- [Security policy](SECURITY.md)
+- [Changelog](CHANGELOG.md)
 - [Who is PodSieve for?](#who-is-podsieve-for)
 - [Project status and limitations](#project-status-and-limitations)
 
