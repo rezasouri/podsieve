@@ -1,6 +1,6 @@
 # PodSieve — Speaker Diarization & Vocal Separation Desktop App
 
-**Open-source-ready audio workflow for speaker diarization, vocal separation, and speaker-labeled dataset preparation — with a native Qt/QML desktop UI and Python CLI.**
+**Local-first audio workflow for speaker diarization, vocal separation, and speaker-labeled dataset preparation — with a native Qt/QML desktop UI and Python CLI.**
 
 PodSieve combines **audio ingestion**, **FFmpeg conversion**, **BS-RoFormer vocal separation**, and **pyannote speaker diarization** in a local pipeline. Import your own recordings or supported YouTube/Castbox URLs, run processing stages individually or in sequence, inspect generated artifacts, and export speaker-grouped WAV clips for review or dataset preparation.
 
